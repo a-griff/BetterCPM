@@ -1,0 +1,50 @@
+# TRS-80 Model II 8-inch formats (draft)
+FDF_VERSION 1
+
+# Pickles & Trout CP/M 2.2 Model II (77T, SS, DD, 600K)
+# Derived from PT22MHA.IMD: directory at cylinder 2, 2K blocks, 16-bit pointers,
+# 128 directory entries, sectors in ID order. Cylinder 0 is FM 26x128 (boot).
+FORMAT
+ID            PT2SS
+DESCRIPTION   "Pickles & Trout M2 SS"
+SPT           64
+BSH           4
+BLM           15
+EXM           0
+DSM           299
+DRM           127
+AL0           0xC0
+AL1           0x00
+CKS           32
+OFF           2
+PSECTORS      16
+SECSIZE       512
+CYLINDERS     77
+SIDES         1
+ENCODING      MFM
+SECTOR_IDS    1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16
+END
+
+# BetterCP/M Model II system disk (77T, SS, DD, 584K)
+# Same physical geometry as P&T; OFF 4 reserves the FM boot cylinder plus
+# 24K of MFM cylinders for the BetterCP/M system package.
+FORMAT
+ID            BCM2SS
+DESCRIPTION   "BetterCP/M M2 SS"
+SPT           64
+BSH           4
+BLM           15
+EXM           0
+DSM           291
+DRM           127
+AL0           0xC0
+AL1           0x00
+CKS           32
+OFF           4
+PSECTORS      16
+SECSIZE       512
+CYLINDERS     77
+SIDES         1
+ENCODING      MFM
+SECTOR_IDS    1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16
+END

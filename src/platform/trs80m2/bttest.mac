@@ -1,0 +1,178 @@
+; ********************************************************************************
+; *          BetterCP/M TRS-80 Model II boot-track bring-up test                 *
+; *                                                                              *
+; * The whole FM track 0 (26 x 128) is loaded by the ROM at 0E00H. Shows a       *
+; * banner, then reads cylinder 1 sector 1 (MFM 512) and shows its first bytes.  *
+; ********************************************************************************
+
+        INCLUDE hardware.inc
+
+M2_READ_ONLY    EQU     0
+BUFFER          EQU     03000H
+
+        ASEG
+        ORG     BT_LOAD                 ; anchor the binary at the ROM load address
+        DB      0FFH
+; ROM contract: 'BOOT' at 1000H, entry 1004H; 'DIAG' at 1400H, called first.
+; Code lives above the DIAG header so neither header can be overwritten.
+        ORG     BT_BOOT
+        DB      'BOOT'
+        JP      START
+        ORG     BT_DIAG
+        DB      'DIAG'
+        JP      START                   ; never return: START switches the ROM out
+
+START:
+        DI
+        XOR     A
+        OUT     (ROMCTL),A              ; boot ROM out of 0000-07FF
+        LD      SP,BT_STACK
+        LD      A,CTL_RUN
+        OUT     (CPUCTL),A
+        LD      HL,VIDEOBASE            ; clear screen
+        LD      DE,VIDEOBASE+1
+        LD      BC,VIDEOCOLS*VIDEOROWS-1
+        LD      (HL),' '
+        LDIR
+        LD      HL,BANNER
+        LD      DE,VIDEOBASE
+        CALL    PUTS
+
+        LD      A,1
+        LD      (B_PDrive),A
+        LD      HL,BUFFER
+        LD      A,1                     ; cylinder 1
+        LD      B,0                     ; side 0
+        LD      C,1                     ; sector 1
+        CALL    M2_READ
+        PUSH    AF
+        LD      HL,RESULT
+        LD      DE,VIDEOBASE+2*VIDEOCOLS
+        CALL    PUTS
+        POP     AF
+        CALL    PUTHEX                  ; controller status after the read
+        LD      HL,BUFFER               ; first 64 bytes of the sector
+        LD      DE,VIDEOBASE+3*VIDEOCOLS
+        LD      BC,64
+        LDIR
+; Test 2: FM read of cylinder 0 sector 2 must match what the ROM loaded at 0E80H.
+        LD      HL,BUFFER
+        XOR     A
+        LD      B,A
+        LD      C,2
+        CALL    M2_READ
+        LD      HL,T2MSG
+        CALL    TSTAT
+        LD      HL,BUFFER
+        LD      DE,BT_LOAD+128
+        LD      B,128
+        CALL    CMPB
+        LD      DE,VIDEOBASE+6*VIDEOCOLS+30
+        CALL    OKBAD
+; Test 3: write a pattern to cylinder 76 sector 16, read it back, compare.
+        LD      HL,BUFFER+1000H
+        LD      B,0
+        XOR     A
+T3FILL: LD      (HL),A
+        INC     HL
+        LD      (HL),B
+        INC     HL
+        INC     A
+        DJNZ    T3FILL
+        LD      HL,BUFFER+1000H
+        LD      A,76
+        LD      B,0
+        LD      C,16
+        CALL    M2_WRITE
+        LD      HL,T3MSG
+        LD      DE,VIDEOBASE+7*VIDEOCOLS
+        CALL    TSTAT2
+        LD      HL,BUFFER+2000H
+        LD      A,76
+        LD      B,0
+        LD      C,16
+        CALL    M2_READ
+        LD      HL,T4MSG
+        LD      DE,VIDEOBASE+8*VIDEOCOLS
+        CALL    TSTAT2
+        LD      HL,BUFFER+1000H
+        LD      DE,BUFFER+2000H
+        LD      B,0
+        CALL    CMPB
+        JR      NZ,T3BAD
+        LD      B,0
+        CALL    CMPB
+T3BAD:  LD      DE,VIDEOBASE+8*VIDEOCOLS+30
+        CALL    OKBAD
+        LD      HL,DONEMSG
+        LD      DE,VIDEOBASE+10*VIDEOCOLS
+        CALL    PUTS
+HANG:   JR      HANG
+
+; HL = zero-terminated string, DE = screen address; returns DE after it.
+PUTS:   LD      A,(HL)
+        OR      A
+        RET     Z
+        LD      (DE),A
+        INC     HL
+        INC     DE
+        JR      PUTS
+
+; A as two hex digits at DE.
+PUTHEX: PUSH    AF
+        RRCA
+        RRCA
+        RRCA
+        RRCA
+        CALL    PUTNIB
+        POP     AF
+PUTNIB: AND     0FH
+        ADD     A,90H
+        DAA
+        ADC     A,40H
+        DAA
+        LD      (DE),A
+        INC     DE
+        RET
+
+; Show "label status" on row 6 for test 2.
+TSTAT:  PUSH    AF
+        LD      DE,VIDEOBASE+6*VIDEOCOLS
+        JR      TSTAT3
+; HL = label, DE = screen address, A = status.
+TSTAT2: PUSH    AF
+TSTAT3: CALL    PUTS
+        POP     AF
+        JP      PUTHEX
+; Compare B bytes (0 = 256) at HL and DE; Z if equal. Advances HL and DE.
+CMPB:   LD      A,(DE)
+        CP      (HL)
+        RET     NZ
+        INC     HL
+        INC     DE
+        DJNZ    CMPB
+        RET
+; Z -> "OK", NZ -> "MISMATCH", at DE.
+OKBAD:  LD      HL,OKMSG
+        JR      Z,PUTS
+        LD      HL,BADMSG
+        JP      PUTS
+B_PDrive: DB    1
+
+        INCLUDE m2disk.inc
+
+BANNER:  DB     'BetterCP/M Model II boot track',0
+RESULT:  DB     'Cyl 1 sec 1 status: ',0
+DONEMSG: DB     'BTTEST DONE',0
+T2MSG:   DB     'FM cyl 0 sec 2 status: ',0
+T3MSG:   DB     'Write cyl 76 sec 16 status: ',0
+T4MSG:   DB     'Read back status: ',0
+OKMSG:   DB     'OK',0
+BADMSG:  DB     'MISMATCH',0
+
+        IF      $ GT BT_END-1
+        DB      BOOT_TRACK_OVERFLOW     ; undefined: forces an assembly error
+        ENDIF
+        ORG     BT_END-1
+        DB      0
+        END
