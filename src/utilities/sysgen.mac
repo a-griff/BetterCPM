@@ -1,3 +1,11 @@
+; Package records kept on a platform boot track before track 1 (see sysgen.inc).
+        IFNDEF  BOOTRECS
+BOOTRECS        EQU     0
+        ENDIF
+; Drive size (inches) of a valid system destination: 5 on Model 4, 8 on Model II.
+        IFNDEF  SYSINCH
+SYSINCH         EQU     5
+        ENDIF
 ; ********************************************************************************
 ; *                          BetterCP/M SYSGEN Utility                           *
 ; *                                                                              *
@@ -465,8 +473,8 @@ PATCHTARGET:                            ; patch package for destination
         LD B,1
         CALL API
         RET NZ
-        LD A,(REQ+1)
-        CP 5
+        LD A,(REQ+1)                    ; destination must be the platform's
+        CP SYSINCH                      ; system drive size (inches)
         JR NZ,PTBAD
         CALL FINDDESC
         RET NZ
@@ -720,6 +728,17 @@ IODRIVE:LD (IODRV),A                    ; iodrive
         INC DE
         LD A,(DE)
         LD B,A
+        IF      BOOTRECS NE 0
+  ; Platforms with a boot track keep package records 0..BOOTRECS-1 there;
+  ; record r beyond them is BIOS record SPT + (r - BOOTRECS). Records < 256.
+        LD A,L
+        CP BOOTRECS
+        JR C,IOMAPX
+        LD DE,-BOOTRECS
+        ADD HL,DE
+        ADD HL,BC
+IOMAPX:
+        ENDIF
         LD DE,0
 
 DIVLP:  OR A                            ; divlp

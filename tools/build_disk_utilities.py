@@ -7,6 +7,7 @@ import math
 from build_ccp import assemble
 from system_layout import expand_layout
 from build_system_package import COMPONENTS
+import build_platform
 ROOT = Path(__file__).resolve().parents[1]
 
 def builtin_source():
@@ -39,7 +40,7 @@ def main():
         records=[validation_record(resident.read_bytes(),LAYOUT['SYSTEM'],52,8,fmt.spt)]
     else:
         records=[validation_record((ROOT/'build/system/resident.bin').read_bytes(),
-                 LAYOUT['SYSTEM'],52,8,80)]
+                 LAYOUT['SYSTEM'],52,8,64 if build_platform.MODEL2 else 80)]
         if args.config_extra_resident:
             if not args.config_extra_spt:p.error('--config-extra-spt required')
             records.append(validation_record(args.config_extra_resident.read_bytes(),
@@ -51,6 +52,11 @@ def main():
     if checked:
         io_records=[descriptor(resident.read_bytes(),LAYOUT['SYSTEM'],
                      (resident.parent/'bios.lst').read_text(),fmt.spt,8)]
+    elif build_platform.MODEL2:
+        # Model II stage one is package records 4-7 at 1000H; SPT 64.
+        from build_trs80m2_image import BUILD as M2BUILD, STAGE1_ADDRESS as M2STAGE1, build_boot_components
+        stage=build_boot_components(args.assembler)
+        io_records=[descriptor(stage,M2STAGE1,(M2BUILD/'stage1.lst').read_text(),64,4)]
     else:
         from build_trs80_boot import assemble as boot_assemble,SOURCE,BUILD,STAGE1_ADDRESS
         stage=boot_assemble(args.assembler,SOURCE/'stage1.mac',BUILD/'stage1.bin',STAGE1_ADDRESS)
@@ -102,6 +108,9 @@ def main():
             from build_dup import expanded_source
             text=expanded_source()
         if checked:text=assembly_constants(checked)+text
+        if build_platform.MODEL2:
+            # Package records 0-7 live on the Model II FM boot track.
+            text='BOOTRECS EQU 8\nSYSINCH EQU 8\n'+text
         data=assemble(args.assembler,text,out/(stem.upper()+'.COM'),out/(stem+'.lst'),0x100)
         if len(data)>0x3D00:
             raise SystemExit(f'{stem}: program overlaps private stack')

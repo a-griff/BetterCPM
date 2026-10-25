@@ -33,6 +33,8 @@ STAGE1:
         LD      A,CTL_RUN               ; page 1 high RAM, video at F800H
         OUT     (CPUCTL),A
   ; True cold entry owns IOBYTE. 95h: CON=CRT, RDR=PTR, PUN=PTP, LST=LPT.
+  ; CONFIG /IOBYTE patches the operand after IO_COLD in the system package.
+IO_COLD:
         LD      A,095H
         LD      (0003H),A
         LD      DE,SYSTABLE

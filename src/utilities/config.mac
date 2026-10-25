@@ -3032,11 +3032,24 @@ TRKMSG: DB 13,10,'Track choices:',13,10 ; track-count msg
         DB '[ A ] 35',13,10,'[ B ] 40',13,10,'[ C ] 77',13,10,'[ D ] 80',13,10
         DB 'ENTER keeps current; ^C cancels.',13,10,0
 
+; WD step rates scale with the controller clock: 1 MHz for 5-inch drives
+; (Model 4), 2 MHz for 8-inch drives (Model II).
+        IFNDEF  SYSINCH
+SYSINCH EQU     5
+        ENDIF
+        IF      SYSINCH EQ 8
+STEPMSG:DB 13,10,'Step rate choices (ms):',13,10 ; step-rate msg
+        DB '[ A ] 3',13,10,'[ B ] 6',13,10,'[ C ] 10',13,10,'[ D ] 15',13,10
+        DB 'ENTER keeps current; ^C cancels.',13,10,0
+
+STEPTAB:DB 3,6,10,15                    ; step-rate tab
+        ELSE
 STEPMSG:DB 13,10,'Step rate choices (ms):',13,10 ; step-rate msg
         DB '[ A ] 6',13,10,'[ B ] 12',13,10,'[ C ] 20',13,10,'[ D ] 30',13,10
         DB 'ENTER keeps current; ^C cancels.',13,10,0
 
 STEPTAB:DB 6,12,20,30                   ; step-rate tab
+        ENDIF
 
 TRKTAB: DB 35,40,77,80                  ; track-count tab
 

@@ -1,3 +1,7 @@
+; Package records kept on a platform boot track before track 1.
+        IFNDEF BOOTRECS
+BOOTRECS EQU 0
+        ENDIF
 ; CONFIG H -- SAVE ALL CURRENT STARTUP DEFAULTS.  07-Sep-2026
 ; Keep saving out of the resident system. Embedded build records validate
 ; fixed carrier bytes with CRC-32 before any editable defaults are used.
@@ -596,6 +600,16 @@ SGSELECTED:
         LD L,A
         LD H,0
         LD DE,(SGSPT)
+        IF BOOTRECS NE 0
+  ; Boot-track platforms: package record r >= BOOTRECS is BIOS record
+  ; SPT + (r - BOOTRECS); see the platform system-disk specification.
+        CP BOOTRECS                 ; A = package record
+        JR C,SGMAPX
+        ADD HL,DE
+        LD BC,-BOOTRECS
+        ADD HL,BC
+SGMAPX:
+        ENDIF
         LD BC,0
 SGDIV:  OR A
         SBC HL,DE

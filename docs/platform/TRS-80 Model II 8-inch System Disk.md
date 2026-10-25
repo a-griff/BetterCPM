@@ -89,8 +89,12 @@ the Model II the first eight records are boot-track records and the remaining
 | 108–159 | Command processor | cylinder 2 sector 10 – cylinder 3 sector 6 |
 
 Package record *r* ≥ 8 is at linear record 64 + (*r* − 8): track 1 upward, four
-records per 512-byte sector. SYSGEN uses this map; it never writes the `DIAG`
-stub, which belongs to the formatted disk.
+records per 512-byte sector. SYSGEN and CONFIG use this map through two
+platform constants the Model II build prepends to the utilities:
+`BOOTRECS EQU 8` (package records kept on the boot track) and `SYSINCH EQU 8`
+(system drives are 8-inch, which also selects the 2 MHz step-rate table). Both
+default to the Model 4 values (0 and 5), so other targets assemble unchanged.
+SYSGEN never writes the `DIAG` stub, which belongs to the formatted disk.
 
 The `DIAG` stub (FM sector 13: `DIAG`, then `JP 1004H`) is written when the
 boot track is formatted. It does not depend on the system build.
