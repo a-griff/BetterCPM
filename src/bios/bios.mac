@@ -49,7 +49,11 @@ BIOS:                                   ; public BIOS jump table
         JP      BIOPUNCH
         JP      BIOREADR
         JP      BIOHOME
+        IFDEF   PL_SBUF
+        JP      BC_SELDSK
+        ELSE
         JP      LY_DISK+6
+        ENDIF
         JP      BIOSETTR
         JP      BIOSETSE
         JP      BIOSETDM
@@ -137,6 +141,9 @@ IO_READY:
         LD A,0FFH
         RET
 BIOCONIN:
+        IFDEF   PL_SBUF
+        CALL    BC_DROP
+        ENDIF
         CALL IO_CON
         JP NZ,BIOREADR
 IO_INPUT:
@@ -199,6 +206,11 @@ BIOSETDM:                               ; set DMA address
 ; -------------------------------------------------------------------------------
 
 BIOREAD:                                ; read logical sector
+        IFDEF   PL_SBUF
+        LD      A,(BC_SRC)              ; cached copy came from a write?
+        OR      A
+        CALL    NZ,BC_DROP
+        ENDIF
         CALL    BIO_PREP
         RET     NZ
 
@@ -223,7 +235,25 @@ BIO_WRCOP:                              ; copy DMA to sector buffer
         LD      BC,128
         LDIR
         LD      HL,BIO_PHYBF
+        IFDEF   PL_SBUF
+        CALL    LY_DISK+12
+        JR      NZ,BC_WFAIL
+        LD      HL,BIO_PHYBF            ; disk now holds this buffer: keep it
+        LD      DE,PL_SBUF              ; for the next record's merge, marked
+        LD      BC,PL_SLEN              ; as written (program reads re-read)
+        LDIR
+        LD      A,1
+        LD      (BC_SRC),A
+        XOR     A
+        RET
+BC_WFAIL:
+        PUSH    AF
+        CALL    BC_DROP
+        POP     AF
+        RET
+        ELSE
         JP      LY_DISK+12
+        ENDIF
 
  ; One address calculation for both directions, not two walking loops.
   ; 07-Sep-2026: recovered these bytes for the optional FDF dispatch.
@@ -236,9 +266,43 @@ BIO_WRCOP:                              ; copy DMA to sector buffer
 BIO_PREP:                               ; prepare physical sector transfer
         CALL    LY_DISK+3
         RET     NZ
+        IFDEF   PL_SBUF
+  ; Platforms with spare RAM keep a private copy of the last sector read.
+  ; Consecutive records of one physical sector then cost one disk read, not
+  ; one revolution each. Key: cylinder, side, physical drive, sector.
+        LD      HL,BIO_PCYL
+        LD      DE,BC_KEY
+        LD      B,4
+BC_CMP: LD      A,(DE)
+        CP      (HL)
+        JR      NZ,BC_MISS
+        INC     HL
+        INC     DE
+        DJNZ    BC_CMP
+        LD      HL,PL_SBUF            ; hit: restore the shared buffer
+        LD      DE,BIO_PHYBF
+        LD      BC,PL_SLEN
+        LDIR
+        JR      BIO_SLOT
+BC_MISS:CALL    BC_DROP
         LD      HL,BIO_PHYBF
         CALL    LY_DISK+9
         RET     NZ
+        LD      HL,BIO_PHYBF            ; remember it
+        LD      DE,PL_SBUF
+        LD      BC,PL_SLEN
+        LDIR
+        LD      HL,BIO_PCYL
+        LD      DE,BC_KEY
+        LD      BC,4
+        LDIR
+        XOR     A                       ; cached copy is from the disk
+        LD      (BC_SRC),A
+        ELSE
+        LD      HL,BIO_PHYBF
+        CALL    LY_DISK+9
+        RET     NZ
+        ENDIF
 
 BIO_SLOT:                               ; select quarter-sector slot
         LD      A,(BIO_QUART)
@@ -333,6 +397,17 @@ B_PDrive:                               ; physical drive
 BIO_PSEC:                               ; physical sector
         DB      1
         INCLUDE biosplat.inc
+        IFDEF   PL_SBUF
+BC_SELDSK:                              ; first selection (E bit 0 = 0) of a
+        BIT     0,E                     ; drive may follow a disk change
+        CALL    Z,BC_DROP
+        JP      LY_DISK+6
+BC_DROP:LD      A,0FFH                  ; no physical drive is 0FFH
+        LD      (BC_KEY+2),A
+        RET
+BC_KEY: DB      0,0,0FFH,0              ; cylinder, side, drive, sector
+BC_SRC: DB      0                       ; 1: cached copy is from a write
+        ENDIF
 
 IO_CAPS:
         LD HL,02002H                    ; CRT console and CRT list only

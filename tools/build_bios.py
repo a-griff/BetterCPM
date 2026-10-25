@@ -39,6 +39,9 @@ def build_bios(assembler: Path) -> bytes:
     listing = BUILD / "bios.lst"
     with tempfile.TemporaryDirectory(prefix="bettercpm-bios-") as temporary:
         staged = Path(temporary)
+        if build_platform.MODEL2:
+            # Platform definitions the shared BIOS tests with IFDEF.
+            text = (PLATFORM / "bioscfg.inc").read_text(encoding="ascii") + text
         (staged / "bios.mac").write_text(expand_layout(text), encoding="ascii")
         shutil.copy2(build_platform.BIOSPLAT, staged / "biosplat.inc")
         for include in build_platform.BIOS_INCLUDES:

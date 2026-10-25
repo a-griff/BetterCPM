@@ -19,3 +19,4 @@ PL_INIT        EQU     M2_INIT         ; platform initialization service
 PL_RELOAD      EQU     M2_RELOAD       ; command-environment reload service
 PL_OVLOAD      EQU     M2_OVLOAD       ; overlay-load service
 PL_RSXLOAD     EQU     M2_RSLOAD       ; RSX-load service
+
