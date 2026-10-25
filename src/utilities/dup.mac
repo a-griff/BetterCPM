@@ -1,3 +1,14 @@
+; Package records on a boot track (0 = none) and system drive size (inches).
+        IFNDEF  BOOTRECS
+BOOTRECS        EQU     0
+        ENDIF
+        IFNDEF  SYSINCH
+SYSINCH         EQU     5
+        ENDIF
+; DUP builds whole write-track streams; 8-inch tracks need the long buffer.
+        IF      SYSINCH EQ 8
+LONGTRK EQU     1
+        ENDIF
 ; ********************************************************************************
 ; *                         BetterCP/M DUP Disk Utility                          *
 ; *                                                                              *
@@ -200,11 +211,27 @@ DTRACK: LD HL,PROGRESS                  ; format next physical track
         LD HL,VPROGRESS
         CALL FPROGRESS
         CALL TRACKPOS
+        IF BOOTRECS NE 0
+        CALL BTCHECK                    ; boot track: read its 26 FM records back;
+        JR NZ,DTERASE                   ; sector 13 holds DIAG, so no E5 check
+        LD HL,26
+        LD (NRECS),HL
+        XOR A
+        LD (PASSMODE),A
+        CALL BTSWAP
+        CALL WALK
+        PUSH AF
+        CALL BTSWAP
+        POP AF
+        JP NZ,DABORT
+        JR DTVOK
+DTERASE:
+        ENDIF
         LD A,1                          ; read and compare with erased E5 records
         LD (PASSMODE),A
         CALL WALK
         JP NZ,DABORT
-        LD HL,(VERIFIED)
+DTVOK:  LD HL,(VERIFIED)
         INC HL
         LD (VERIFIED),HL
         CALL BREAKCK
@@ -1368,7 +1395,61 @@ SSREADY:LD A,C                          ; ssready
 
         INCLUDE dup-cli.inc
 
-STREAM: LD HL,TRACKBF                   ; build write-track stream
+        IF BOOTRECS NE 0
+  ; Boot-track platforms (Model II): cylinder 0 side 0 is always the ROM's
+  ; FM boot track, 26 x 128 with IDs 1-26, whatever the selected format, and
+  ; sector 13 carries the 'DIAG' stub the ROM requires (JP 1004H).
+  ; BTCHECK: Z if the current track is the boot track.
+BTCHECK:LD A,(DCYL)
+        LD HL,DSIDE
+        OR (HL)
+        RET
+  ; BTSWAP exchanges the binding's geometry (CURB+17..+52) with BTGEO;
+  ; a second call restores it.
+BTSWAP: LD HL,CURB+17
+        LD DE,BTGEO
+        LD B,BTGEOLEN
+BTSWL:  LD A,(DE)
+        LD C,(HL)
+        LD (HL),A
+        LD A,C
+        LD (DE),A
+        INC HL
+        INC DE
+        DJNZ BTSWL
+        RET
+STREAM: CALL BTCHECK
+        JP NZ,STREAMF
+        CALL BTSWAP
+        CALL STREAMF
+        PUSH AF
+        CALL BTSWAP
+        POP AF
+        RET C                           ; stream too big: nothing to patch
+        LD HL,TRACKBF                   ; find the 13th data mark
+        LD B,13
+BTFIND: LD A,(HL)
+        INC HL
+        CP 0FBH
+        JR NZ,BTFIND
+        DJNZ BTFIND
+        EX DE,HL
+        LD HL,BTDIAG
+        LD BC,BTDIAGLEN
+        LDIR
+        OR A
+        RET
+BTGEO:  DB 26,0,0                       ; sectors, 128 bytes, FM single side
+        DB 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26
+        DB 0,0,0,0,0,0                  ; rest of the 32 ID slots
+        DB 0                            ; no per-sector sizes
+BTGEOLEN EQU $-BTGEO
+BTDIAG: DB 'DIAG',0C3H,04H,10H          ; JP 1004H
+BTDIAGLEN EQU $-BTDIAG
+        ELSE
+STREAM:
+        ENDIF
+STREAMF:LD HL,TRACKBF                   ; build write-track stream
         LD (STRPTR),HL
         XOR A
         LD (DSEC),A
@@ -1527,9 +1608,15 @@ SDGAP:  CALL RUN                        ; sdgap
         ADD HL,DE
         LD A,(MFM)
         OR A
+        IF SYSINCH EQ 8
+        LD DE,5208                      ; 8-inch, 500 kbps, 360 rpm: FM
+        JR Z,SCAP
+        LD DE,10416                     ; MFM
+        ELSE
         LD DE,3125
         JR Z,SCAP
         LD DE,6250
+        ENDIF
 
 ; -------------------------------------------------------------------------------
 ; Track Capacity

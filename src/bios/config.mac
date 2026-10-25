@@ -380,7 +380,7 @@ DC_SKBAD:                               ; reject duplicate sector ID
 ; =                               Disk Formatting                                =
 ; =                                                                              =
 ; = Validates a format request, reselects the target drive, and streams caller-  =
-; = supplied track data directly to the Model 4 floppy controller.               =
+; = supplied track data to the floppy controller (Model 4 polled, Model II DMA). =
 ; ================================================================================
 ; -------------------------------------------------------------------------------
 ; Format Request Setup
@@ -451,6 +451,45 @@ DC_FBUFFER:                             ; validate format buffer
   ; seek service: this second call has no head travel, but renews selection.
         CALL DC_SEEK
         JP NZ,DC_RETURN
+        IFDEF DMAPORT
+  ; Model II: 500 kbps leaves no time for byte polling. The Z80 DMA feeds
+  ; WRITE TRACK from the caller's stream; INTRQ (PIO A bit 0) marks the end.
+        LD HL,(DC_BUFFER)
+        LD (DC_DMAT+11),HL              ; port B (memory) address
+        LD E,(IX+3)
+        LD D,(IX+4)
+        DEC DE                          ; DMA length is count - 1
+        LD (DC_DMAT+6),DE
+        LD HL,DC_DMAT
+        LD BC,(DC_DMAW-DC_DMAT)*256+DMAPORT ; program with B -> A turnaround
+        OTIR
+        LD A,DMA_ENABLE
+        OUT (DMAPORT),A
+        LD A,0F0H
+        OUT (FDCCOMMAND),A
+        LD DE,0
+        LD B,8                          ; several revolutions at most
+DC_FWAIT:
+        IN A,(PIOA)
+        RRCA
+        JR C,DC_FSTATUS
+        DEC DE
+        LD A,D
+        OR E
+        JR NZ,DC_FWAIT
+        DJNZ DC_FWAIT
+
+DC_FFAIL:                               ; handle format failure
+        CALL DC_ERR
+        JP DC_RETURN
+
+DC_FSTATUS:                             ; return format status
+        LD A,DMA_RESET
+        OUT (DMAPORT),A
+        IN A,(FDCSTATUS)
+        AND 0FCH
+        JP DC_RETURN
+        ELSE
         LD HL,(DC_BUFFER)
         LD B,(IX+3)
         LD A,(IX+4)
@@ -508,6 +547,8 @@ DC_FSTATUS:                             ; return format status
         IN A,(FDCSTATUS)
         AND 0FCH
         JP DC_RETURN
+
+        ENDIF
 
 CPTCOUNT EQU LY_SYS+094H
 CPTFLAGS EQU LY_SYS+095H              ; bit 0: startup command already consumed

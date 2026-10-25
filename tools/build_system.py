@@ -76,7 +76,11 @@ def build_support(assembler: Path) -> None:
                     r"^([0-9a-f]{4})\s+.*?\b(DC_\w+):", (BUILD / "disk.lst").read_text(errors="replace"), re.M | re.I))
                 defined = set(re.findall(r"^(DC_\w+):", source, re.M))
                 imported = set(re.findall(r"\bDC_\w+\b", source)) - defined
-                links = "".join(f"{symbol} EQU 0{symbols[symbol]:04X}H\n" for symbol in sorted(imported))
+                # Platform-conditional source (IFDEF) may name symbols that only
+                # another platform's disk module defines; a reference that is
+                # really used and missing still fails at assembly.
+                links = "".join(f"{symbol} EQU 0{symbols[symbol]:04X}H\n"
+                                for symbol in sorted(imported) if symbol in symbols)
                 (staged / "disklinks.inc").write_text(links)
                 (BUILD / "disklink.inc").write_text(links, encoding="ascii")
 

@@ -379,10 +379,9 @@ DC_FM0:                                 ; map cylinder 0 record to FM sector
         JR NC,DC_MAPBAD
         INC A
         LD (BIO_PSEC),A
-        XOR A
+        XOR A                           ; 128-byte sectors; DC_SEEK selects FM
         LD (DC_SIZE),A
         LD A,(IX+19)
-        AND 07FH                        ; FM
         LD (DC_FLAGS),A
         POP IX
         XOR A
@@ -486,8 +485,7 @@ DC_DPROG:
         OUT (DMAPORT),A
         LD A,(DC_COMMAND)
         OUT (FDCCOMMAND),A
-        LD DE,0
-        LD B,3                          ; about 2.4 s before giving up
+        LD B,3                          ; DE = count - 1 here: about 2 s
 DC_DWT:
         IN A,(PIOA)
         RRCA
@@ -499,7 +497,7 @@ DC_DWT:
         DJNZ DC_DWT                     ; timeout: the next program resets the DMA
         JR DC_ERR
 
-DC_DEND:                                ; command complete
+DC_DEND:                                ; command complete: stop the DMA
         LD A,DMA_RESET
         OUT (DMAPORT),A
         IN A,(FDCSTATUS)
@@ -526,6 +524,7 @@ DC_DMAT:
         DB 08AH,0CFH
 DC_DMAN EQU $-DC_DMAT
         DB 001H,0CFH
+DC_DMAW:                                ; end of the write program
 
 ; -------------------------------------------------------------------------------
 ; Write-Buffer Polarity
@@ -601,10 +600,14 @@ DC_SEEK:                                ; select drive and position head
         JR Z,DC_SSIDE
         LD B,0
 DC_SSIDE:
+        LD HL,BIO_PCYL                  ; cylinder 0 side 0 is always the FM
+        OR (HL)                         ; boot track, whatever the format
+        JR Z,DC_SFM
         LD A,(DC_FLAGS)
         AND 080H
         OR B
         LD B,A
+DC_SFM:
         LD A,(B_PDrive)
         XOR SEL_NONE
         AND SEL_NONE

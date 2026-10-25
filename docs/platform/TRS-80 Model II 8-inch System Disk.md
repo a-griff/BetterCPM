@@ -123,3 +123,23 @@ disks. The P&T system tracks are left untouched.
 
 The builder emits ImageDisk (`.IMD`) images, which trs80gp boots directly:
 mode 0 (500 kbps FM) for cylinder 0 and mode 3 (500 kbps MFM) for the rest.
+
+## Formatting
+
+DUP formats Model II disks with the same write-track streams it builds for
+every target, plus three Model II rules:
+
+- Cylinder 0 side 0 is always written as the FM boot track (26 × 128, IDs
+  1–26), whatever format is selected, and sector 13 receives the `DIAG` stub.
+  DUP verifies this track by reading its 26 records back rather than checking
+  for erased data.
+- Track capacity follows the drive: 5,208 bytes FM and 10,416 bytes MFM per
+  revolution for 8-inch drives at 500 kbps and 360 rpm (`SYSINCH EQU 8`).
+- DUP's write-track stream starts at 7000H instead of 8000H on 8-inch
+  platforms (`LONGTRK`), because an 8-inch MFM track plus the index tail does
+  not fit the 10K buffer used for 5¼-inch drives.
+
+The control overlay streams each track to the controller with the Z80 DMA
+(`IFDEF DMAPORT`); the Model 4 keeps its polled loop. The resident disk module
+selects FM for cylinder 0 side 0 and the binding's density everywhere else, so
+reads, writes and formatting all follow the same rule.

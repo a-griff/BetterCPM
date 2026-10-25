@@ -2,10 +2,18 @@
 ; All system work goes through BDOS. No TRS-80 addresses live here.
 ; Private buffers: 4000-7FFF FDF text, 8000-A7FF write-track stream.
 ; Keep the program below 3E00; the private stack ends at 4000.
+; DUP on 8-inch platforms defines LONGTRK: a 500 kbps track (about 10.4K plus
+; the index tail) needs a longer stream, so it uses 7000-A7FF and keeps
+; 4000-6F7F for text. Other programs keep the standard layout.
 BDOS    EQU 5
 FDFRAM  EQU 04000H
+        IFDEF   LONGTRK
+FDFLIM  EQU 06F80H
+TRACKBF EQU 07000H
+        ELSE
 FDFLIM  EQU 07F80H
 TRACKBF EQU 08000H
+        ENDIF
 TRKLIM  EQU 0A800H
 
 ; Preserve loop registers across console calls. Strings end in zero.
