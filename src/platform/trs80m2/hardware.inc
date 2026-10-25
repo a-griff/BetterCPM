@@ -76,3 +76,14 @@ DMAPORT         EQU     0F8H
 PIOA            EQU     0E0H            ; bit 0 = FDC INTRQ (command complete)
 DMA_ENABLE      EQU     087H
 DMA_RESET       EQU     0C3H
+
+; -------------------------------------------------------------------------------
+; Model 4 port names used by shared BIOS/CONFIG source
+; -------------------------------------------------------------------------------
+
+FDCSTATUS       EQU     FDCSTS
+FDCCOMMAND      EQU     FDCCMD
+FDCTRACK        EQU     FDCTRK
+FDCSECTOR       EQU     FDCSEC
+FDCDATA         EQU     FDCDAT
+FDCSELECT       EQU     FDCSEL

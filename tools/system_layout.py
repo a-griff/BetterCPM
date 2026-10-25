@@ -121,9 +121,9 @@ def expand_layout(text: str) -> str:
                      if 'CPXBASE         EQU     00100H' in text else ''))
         text = text.replace('; @rcp-shared-selector@', selector)
 
-    order = (1,3,5,7,9,2,4,6,8,10)
+    from build_platform import system_sector
     def table(start, count):
-        return "\n".join(f"        DB {n//20},{n//10%2},{order[n%10]}" for n in range(start, start+count))
+        return "\n".join("        DB %d,%d,%d" % system_sector(n) for n in range(start, start+count))
     return text.replace("; @resident-sector-table@", table(2, LAYOUT["BOOT_SECTORS"])) .replace(
         "; @command-sector-table@", table(14 + LAYOUT["BOOT_SECTORS"], 13)).replace(
         "; @reloader-sector-table@", table(2 + LAYOUT["BOOT_SECTORS"], 2)).replace(

@@ -12,7 +12,8 @@ from system_layout import LAYOUT, expand_layout
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "src/bios"
-PLATFORM = ROOT / "src/platform/trs80m4"
+import build_platform
+PLATFORM = build_platform.DIR
 BUILD = ROOT / "build/bios"
 BIOS_ADDRESS = LAYOUT["BIOS"]
 BIOS_LIMIT = LAYOUT["FILE"] - BIOS_ADDRESS
@@ -39,11 +40,9 @@ def build_bios(assembler: Path) -> bytes:
     with tempfile.TemporaryDirectory(prefix="bettercpm-bios-") as temporary:
         staged = Path(temporary)
         (staged / "bios.mac").write_text(expand_layout(text), encoding="ascii")
-        shutil.copy2(SOURCE / "biosplat.inc", staged / "biosplat.inc")
-        shutil.copy2(PLATFORM / "hardware.inc", staged / "hardware.inc")
-        shutil.copy2(PLATFORM / "m4cons.inc", staged / "m4cons.inc")
-        shutil.copy2(PLATFORM / "m4scroll.inc", staged / "m4scroll.inc")
-        shutil.copy2(PLATFORM / "m4disk.inc", staged / "m4disk.inc")
+        shutil.copy2(build_platform.BIOSPLAT, staged / "biosplat.inc")
+        for include in build_platform.BIOS_INCLUDES:
+            shutil.copy2(PLATFORM / include, staged / include)
         (staged / "reload.inc").write_text(expand_layout((PLATFORM / "reload.inc").read_text()))
         staged_output = staged / "bios.bin"
         staged_listing = staged / "bios.lst"

@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 from system_layout import LAYOUT, expand_layout
 from build_bios import build_bios
+import build_platform
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "src/system/gateway.mac"
@@ -52,8 +53,8 @@ def build_support(assembler: Path) -> None:
     bioslinks = "".join(f"{k} EQU 0{v:04X}H\n" for k,v in bios_symbols.items())
     (BUILD / "bioslink.inc").write_text(bioslinks, encoding="ascii")
     for relative, name, base in (("src/system/extens.mac", "extensions", LAYOUT["EXTENSIONS"]),
-                                  ("src/bios/tables.mac", "tables", LAYOUT["TABLES"]),
-                                  ("src/bios/disk.mac", "disk", LAYOUT["DISK"]),
+                                  (build_platform.TABLES_SOURCE, "tables", LAYOUT["TABLES"]),
+                                  (build_platform.DISK_SOURCE, "disk", LAYOUT["DISK"]),
                                   ("src/bios/config.mac", "config", LAYOUT["CONFIG"])):
         source = (ROOT / relative).read_text(encoding="ascii").replace(
             "        CSEG\n        .PHASE  ", "        ASEG\n        ORG     "
@@ -80,7 +81,7 @@ def build_support(assembler: Path) -> None:
                 (BUILD / "disklink.inc").write_text(links, encoding="ascii")
 
             (staged / "bioslinks.inc").write_text(bioslinks, encoding="ascii")
-            (staged / "hardware.inc").write_bytes((ROOT / "src/platform/trs80m4/hardware.inc").read_bytes())
+            (staged / "hardware.inc").write_bytes((build_platform.DIR / "hardware.inc").read_bytes())
             (staged / "versions.inc").write_bytes(
                 (ROOT / "src/bdos/versions.inc").read_bytes())
             output = BUILD / f"{name}.bin"

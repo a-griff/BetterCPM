@@ -1,0 +1,91 @@
+        INCLUDE layout.inc
+
+; ********************************************************************************
+; *                     BetterCP/M Resident Disk Tables                          *
+; *                                                                              *
+; * Defines the four installed DPH/disk-binding records plus shared allocation   *
+; * workspace and per-drive directory checksum storage. The defaults describe    *
+; * the initial system/data disk profiles and may later be replaced by SYSGEN.   *
+; ********************************************************************************
+
+        CSEG
+        .PHASE  LY_TAB
+
+; ================================================================================
+; =                        Installed Drive Descriptors                           =
+; =                                                                              =
+; = Each DPH is followed by its 64-byte logical-disk binding. All four drives   =
+; = default to the BetterCP/M Model II 8" format (77T SS DD, OFF 4, 584K).     =
+; ================================================================================
+
+DPH0:                                   ; drive A DPH and disk binding
+        DW 0,0,0,0,LY_DIR,DPH0+17,CSV+0,ALV
+        DB 0
+        DW 64
+        DB 4,15,0
+        DW 291,127
+        DB 0C0H,0
+        DW 32,4
+        DB 77,16,2,080H
+        DB 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16
+        REPT 28
+        DB 0
+        ENDM
+
+DPH1:                                   ; drive B DPH and disk binding
+        DW 0,0,0,0,LY_DIR,DPH1+17,CSV+32,ALV
+        DB 1
+        DW 64
+        DB 4,15,0
+        DW 291,127
+        DB 0C0H,0
+        DW 32,4
+        DB 77,16,2,080H
+        DB 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16
+        REPT 28
+        DB 0
+        ENDM
+
+DPH2:                                   ; drive C DPH and disk binding
+        DW 0,0,0,0,LY_DIR,DPH2+17,CSV+64,ALV
+        DB 2
+        DW 64
+        DB 4,15,0
+        DW 291,127
+        DB 0C0H,0
+        DW 32,4
+        DB 77,16,2,080H
+        DB 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16
+        REPT 28
+        DB 0
+        ENDM
+
+DPH3:                                   ; drive D DPH and disk binding
+        DW 0,0,0,0,LY_DIR,DPH3+17,CSV+96,ALV
+        DB 3
+        DW 64
+        DB 4,15,0
+        DW 291,127
+        DB 0C0H,0
+        DW 32,4
+        DB 77,16,2,080H
+        DB 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16
+        REPT 28
+        DB 0
+        ENDM
+
+; -------------------------------------------------------------------------------
+; Shared Allocation and Checksum Workspace
+; -------------------------------------------------------------------------------
+
+  ; Explicit zeros avoid assembler-specific DS fill in native system packages.
+ALV:                                   ; shared allocation-vector workspace
+        REPT 128
+        DB 0
+        ENDM
+CSV:                                   ; per-drive directory checksum vectors
+        REPT 128
+        DB 0
+        ENDM
+        .DEPHASE
+        END

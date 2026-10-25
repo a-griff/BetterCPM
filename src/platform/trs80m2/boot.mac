@@ -1,0 +1,119 @@
+        INCLUDE layout.inc
+
+; ********************************************************************************
+; *                 BetterCP/M TRS-80 Model II Boot Track                        *
+; *                                                                              *
+; * The Model II ROM loads all 26 FM sectors of cylinder 0 at 0E00H, calls the   *
+; * 'DIAG' entry at 1404H and then jumps to the 'BOOT' entry at 1004H. Both      *
+; * enter here; we never return to the ROM. This replaces the Model 4's          *
+; * stage-zero and stage-one loaders: it reads the resident system from its      *
+; * generated sector table and enters BIOS BOOT.                                 *
+; *                                                                              *
+; * FM sectors 2-3 (0E80H-0F7FH) hold the saved startup record, which the CCP    *
+; * reads as logical records 1-2 of drive A track 0. The builder places it.      *
+; ********************************************************************************
+
+        INCLUDE hardware.inc
+
+SYSIMAGE        EQU     LY_SYS
+SYSBOOT         EQU     LY_BIOS+0       ; BIOS BOOT initializes the console
+SYSSECTORS      EQU     LY_SECTS
+M2_READ_ONLY    EQU     1
+
+        ASEG
+        ORG     BT_LOAD                 ; anchor the binary at the ROM load address
+        DB      0FFH
+
+        ORG     BT_BOOT
+        DB      'BOOT'
+        JP      STAGE1
+
+        ORG     BT_DIAG
+        DB      'DIAG'
+        JP      STAGE1                  ; never return: STAGE1 switches the ROM out
+
+STAGE1:
+        DI
+        XOR     A
+        OUT     (ROMCTL),A              ; boot ROM out of 0000-07FF
+        LD      SP,BT_STACK
+        LD      A,CTL_RUN               ; page 1 high RAM, video at F800H
+        OUT     (CPUCTL),A
+  ; True cold entry owns IOBYTE. 95h: CON=CRT, RDR=PTR, PUN=PTP, LST=LPT.
+        LD      A,095H
+        LD      (0003H),A
+        LD      HL,SYSTABLE
+        LD      (SYSTABP),HL
+        LD      HL,SYSIMAGE
+        LD      (SYSDEST),HL
+        LD      A,SYSSECTORS
+        LD      (SYSLEFT),A
+
+SYSLOAD:                                ; load next resident-system sector
+        LD      HL,(SYSTABP)
+        LD      A,(HL)
+        INC     HL
+        LD      B,(HL)
+        INC     HL
+        LD      C,(HL)
+        INC     HL
+        LD      (SYSTABP),HL
+        LD      HL,(SYSDEST)
+        CALL    M2_READ
+        JR      NZ,SYSERROR
+        LD      (SYSDEST),HL
+        LD      A,(SYSLEFT)
+        DEC     A
+        LD      (SYSLEFT),A
+        JR      NZ,SYSLOAD
+  ; A is zero after the final sector. A true cold start has no interrupted
+  ; lookup to recover; leave warm reconstruction's recovery state untouched.
+        LD      (0048H),A
+        JP      SYSBOOT
+
+SYSERROR:                               ; show the controller status and stop
+        PUSH    AF
+        LD      HL,ERRMSG
+        LD      DE,VIDEOBASE+11*VIDEOCOLS+28
+        LD      BC,ERRLEN
+        LDIR
+        POP     AF
+        PUSH    AF
+        RRCA
+        RRCA
+        RRCA
+        RRCA
+        CALL    HEXNIB
+        POP     AF
+        CALL    HEXNIB
+SYSHALT:
+        JR      SYSHALT
+
+HEXNIB: AND     0FH
+        ADD     A,90H
+        DAA
+        ADC     A,40H
+        DAA
+        LD      (DE),A
+        INC     DE
+        RET
+
+ERRMSG: DB      'BetterCP/M load error '
+ERRLEN  EQU     $-ERRMSG
+
+SYSTABLE:                               ; resident-system sector table
+  ; @resident-sector-table@
+
+SYSTABP:  DW    0
+SYSDEST:  DW    SYSIMAGE
+SYSLEFT:  DB    SYSSECTORS
+B_PDrive: DB    1                       ; the system always loads from drive 0
+
+        INCLUDE m2disk.inc
+
+        IF      $ GT BT_END-1
+        DB      BOOT_TRACK_OVERFLOW     ; undefined: forces an assembly error
+        ENDIF
+        ORG     BT_END-1
+        DB      0
+        END
