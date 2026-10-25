@@ -206,7 +206,15 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp",
+        "trs80gp"
+      ],
+      "user": 0
+    },
+    {
+      "name": "DISK.FDB",
+      "artifact": "build/catalog/trs80m2/DISK.FDB",
+      "status": "implemented",
+      "targets": [
         "trs80m2"
       ],
       "user": 0
