@@ -143,3 +143,25 @@ The control overlay streams each track to the controller with the Z80 DMA
 (`IFDEF DMAPORT`); the Model 4 keeps its polled loop. The resident disk module
 selects FM for cylinder 0 side 0 and the binding's density everywhere else, so
 reads, writes and formatting all follow the same rule.
+
+## Building and testing
+
+```sh
+BETTERCPM_PLATFORM=trs80m2 python3 tools/build_complete_system.py
+TRS80GP=/path/to/trs80gp tools/test_trs80m2.sh -pt /path/to/PT22MHA.IMD
+```
+
+The first command builds the resident system, utilities, catalogue and the
+image `build/trs80m2/BetterCPM-Model2-77T-SS-System-584K.imd`. The test script
+boots it under trs80gp (headless through `xvfb-run` when there is no display)
+and checks cold boot and banner, DIR/STAT, COPY, CONFIG, DUP format of a blank
+disk, SYSGEN onto it and booting that disk, and, with `-pt`, read access to a
+Pickles & Trout disk. Without `BETTERCPM_PLATFORM` the build is the Model 4
+build, unchanged. `src/platform/trs80m2/bttest.mac` is a standalone boot-track
+probe of the controller, DMA and FM/MFM paths, useful when bringing up real
+hardware.
+
+Known limitation: the BIOS keeps no physical-sector cache, so each 128-byte
+record reads its whole 512-byte sector and a run of records in one sector costs
+one disk revolution each (166 ms at 360 rpm). Copies between drives are
+therefore slow. The Model 4 shares this design.

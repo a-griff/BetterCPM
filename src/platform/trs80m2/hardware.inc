@@ -78,7 +78,7 @@ DMA_ENABLE      EQU     087H
 DMA_RESET       EQU     0C3H
 
 ; -------------------------------------------------------------------------------
-; Model 4 port names used by shared BIOS/CONFIG source
+; Controller port names used by the shared BIOS control overlay
 ; -------------------------------------------------------------------------------
 
 FDCSTATUS       EQU     FDCSTS
