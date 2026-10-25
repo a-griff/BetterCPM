@@ -61,11 +61,18 @@ cylinder uses the format's own encoding and geometry.
 | Property | Value |
 | --- | --- |
 | Cylinder 0 | FM, 26 × 128 (boot track) |
-| Cylinders 1–76 | MFM, 16 × 512, sector IDs 1–16 in order |
+| Cylinders 1–76 | MFM, 16 × 512, sector IDs 1–16, 3:1 interleave |
 | CP/M logical track | One cylinder; SPT 64 |
 | Reserved area | OFF 4 (cylinders 0–3) |
 | Blocks | 2 KiB, 16-bit pointers, DSM 291 (584K) |
 | Directory | 128 entries (AL0 C0H), CKS 32 |
+
+Physical order on each MFM track is 1, 12, 7, 2, 13, 8, 3, 14, 9, 4, 15, 10, 5,
+16, 11, 6: consecutive sectors are three slots apart, which gives the BIOS two
+sector times (about 19 ms) to finish one transfer and ask for the next before
+it passes the head. Sector IDs and logical order are unchanged, so the
+interleave only affects speed; a disk laid out 1:1 still reads and writes
+correctly. The boot track stays sequential.
 
 All four drives default to this format. Any format in the DISK.FDB catalogue
 can be selected per drive with CONFIG.
@@ -133,6 +140,8 @@ every target, plus three Model II rules:
   1–26), whatever format is selected, and sector 13 receives the `DIAG` stub.
   DUP verifies this track by reading its 26 records back rather than checking
   for erased data.
+- MFM tracks are laid out 3:1 (`ILEAVE`), as described above; the FM boot
+  track is written in order.
 - Track capacity follows the drive: 5,208 bytes FM and 10,416 bytes MFM per
   revolution for 8-inch drives at 500 kbps and 360 rpm (`SYSINCH EQU 8`).
 - DUP's write-track stream starts at 7000H instead of 8000H on 8-inch
@@ -161,7 +170,16 @@ build, unchanged. `src/platform/trs80m2/bttest.mac` is a standalone boot-track
 probe of the controller, DMA and FM/MFM paths, useful when bringing up real
 hardware.
 
-Known limitation: the BIOS keeps no physical-sector cache, so each 128-byte
-record reads its whole 512-byte sector and a run of records in one sector costs
-one disk revolution each (166 ms at 360 rpm). Copies between drives are
-therefore slow. The Model 4 shares this design.
+## Sector cache
+
+The Model II BIOS reads each physical sector into a private 1K buffer at F400H
+(`PL_SBUF`, free RAM below the video window) and remembers its drive, side,
+cylinder and sector. The other records of that sector are then served from
+the buffer without touching the disk. On a miss the fresh sector is also
+copied to the shared `LY_BUF`, where DUP and CONFIG expect it. Writes go
+through to the disk at once; the cache is dropped on a failed write, on a
+drive change and on console input (a disk may have been swapped), and the
+first read after a write fetches its sector again. Together with the interleave this took a 3.5K
+copy from drive A to drive B from over 80 seconds to under 8, and a 15K copy
+to about 11 seconds. Other targets (no `PL_SBUF`) keep using `LY_BUF` as
+before.

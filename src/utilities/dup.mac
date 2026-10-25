@@ -1421,8 +1421,16 @@ BTSWL:  LD A,(DE)
 STREAM: CALL BTCHECK
         JP NZ,STREAMF
         CALL BTSWAP
+        IF SYSINCH EQ 8
+        LD A,1                          ; boot track stays sequential
+        LD (ILVOFF),A
+        ENDIF
         CALL STREAMF
         PUSH AF
+        IF SYSINCH EQ 8
+        XOR A
+        LD (ILVOFF),A
+        ENDIF
         CALL BTSWAP
         POP AF
         RET C                           ; stream too big: nothing to patch
@@ -1449,10 +1457,57 @@ BTDIAGLEN EQU $-BTDIAG
         ELSE
 STREAM:
         ENDIF
+        IF SYSINCH EQ 8
+ILEAVE  EQU 3                           ; 8-inch sector interleave factor
+  ; ILVTAB[slot] = sector index: place index 0 at slot 0, then every ILEAVE
+  ; slots, taking the next free slot when the target is already used.
+SILVBLD:LD HL,ILVTAB
+        LD B,32
+        LD A,0FFH
+SILVF:  LD (HL),A
+        INC HL
+        DJNZ SILVF
+        LD A,(CURB+17)
+        LD B,A                          ; sectors to place
+        LD C,0                          ; next sector index
+        LD E,0                          ; candidate slot
+SILVN:  LD HL,ILVTAB
+        LD D,0
+        ADD HL,DE
+        LD A,(HL)
+        INC A
+        JR Z,SILVPUT                    ; free
+        INC E
+        LD A,(CURB+17)
+        CP E
+        JR NZ,SILVN
+        LD E,0
+        JR SILVN
+SILVPUT:LD (HL),C
+        INC C
+        LD A,E
+        ADD A,ILEAVE
+        LD E,A
+        LD A,(CURB+17)
+        LD D,A
+SILVM:  LD A,E
+        CP D
+        JR C,SILVOK
+        SUB D
+        LD E,A
+        JR SILVM
+SILVOK: DJNZ SILVN
+        RET
+        ENDIF
 STREAMF:LD HL,TRACKBF                   ; build write-track stream
         LD (STRPTR),HL
         XOR A
         LD (DSEC),A
+        IF SYSINCH EQ 8
+        LD (DPOS),A
+        CALL SILVBLD
+        XOR A
+        ENDIF
         LD A,(CURB+19)
         AND 080H
         LD (MFM),A
@@ -1481,7 +1536,25 @@ SFMHEAD:LD A,0FFH                       ; sfmhead
 ; Sector Record Emission
 ; -------------------------------------------------------------------------------
 
-SRECORD:CALL GETSIZE                    ; srecord
+SRECORD:
+        IF SYSINCH EQ 8
+  ; 8-inch drives: sectors are laid out ILEAVE:1 (ILVTAB, built per track) so
+  ; the BIOS has time to ask for the next one before it passes the head; IDs
+  ; and logical order are unchanged. DPOS is the physical slot, DSEC the
+  ; sector index it holds. The boot track (ILVOFF) stays sequential.
+        LD A,(DPOS)
+        LD E,A
+        LD A,(ILVOFF)
+        OR A
+        LD A,E
+        JR NZ,SILVSET
+        LD D,0
+        LD HL,ILVTAB
+        ADD HL,DE
+        LD A,(HL)
+SILVSET:LD (DSEC),A
+        ENDIF
+        CALL GETSIZE                    ; srecord
 
 SWHOLE: LD A,(MFM)                      ; swhole
         OR A
@@ -1589,9 +1662,15 @@ SDRUN:  CALL RUN                        ; sdrun
         LD BC,16
 
 SDGAP:  CALL RUN                        ; sdgap
+        IF SYSINCH EQ 8
+        LD A,(DPOS)
+        INC A
+        LD (DPOS),A
+        ELSE
         LD A,(DSEC)
         INC A
         LD (DSEC),A
+        ENDIF
         LD B,A
         LD A,(CURB+17)
         CP B
@@ -1746,6 +1825,11 @@ DPHYS:  DB 0                            ; dphys
 DCYL:   DB 0                            ; dcyl
 DSIDE:  DB 0                            ; dside
 DSEC:   DB 0                            ; dsec
+        IF SYSINCH EQ 8
+DPOS:   DB 0                            ; physical slot while building a track
+ILVOFF: DB 0                            ; 1: lay this track out sequentially
+ILVTAB: DS 32                           ; physical slot -> sector index
+        ENDIF
 MFM:    DB 0                            ; mfm
 STRPTR: DW 0                            ; strptr
         INCLUDE disk/common.inc

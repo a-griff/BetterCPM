@@ -133,7 +133,8 @@ def main() -> None:
     subprocess.run(["perl", str(SOURCE / "mkm2imd.pl"),
                     "-boot", str(BUILD / "boottrack.bin"),
                     "-sys", str(BUILD / "cylinders.bin"),
-                    "-cyl", str(CYLINDERS), "-out", str(args.output)],
+                    "-cyl", str(CYLINDERS), "-interleave", "3",
+                    "-out", str(args.output)],
                    check=True, stdout=subprocess.DEVNULL)
     image = args.output.read_bytes()
     print(f"{hashlib.sha256(image).hexdigest()}  {args.output}")

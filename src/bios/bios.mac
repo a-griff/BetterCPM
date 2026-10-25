@@ -12,7 +12,11 @@
 
 ; IOBYTE_ROUTING_V1: qualified compact CRT router and capability query.
 BIOSBASE        EQU     LY_BIOS+0
+        IFDEF   PL_SBUF
+BIO_PHYBF       EQU     PL_SBUF         ; private sector buffer, kept as a cache
+        ELSE
 BIO_PHYBF       EQU     LY_BUF          ; 1024-byte shared physical-sector buffer
+        ENDIF
 BIO_DIRBF       EQU     LY_DIR
   ; BIOS-owned descriptors are linked separately in the shared packed map.
 BIO_DPH0        EQU     LY_TAB+0
@@ -238,11 +242,8 @@ BIO_WRCOP:                              ; copy DMA to sector buffer
         IFDEF   PL_SBUF
         CALL    LY_DISK+12
         JR      NZ,BC_WFAIL
-        LD      HL,BIO_PHYBF            ; disk now holds this buffer: keep it
-        LD      DE,PL_SBUF              ; for the next record's merge, marked
-        LD      BC,PL_SLEN              ; as written (program reads re-read)
-        LDIR
-        LD      A,1
+        LD      A,1                     ; disk now holds the buffer: keep it for
+                                        ; the next record's merge, marked written
         LD      (BC_SRC),A
         XOR     A
         RET
@@ -267,9 +268,10 @@ BIO_PREP:                               ; prepare physical sector transfer
         CALL    LY_DISK+3
         RET     NZ
         IFDEF   PL_SBUF
-  ; Platforms with spare RAM keep a private copy of the last sector read.
-  ; Consecutive records of one physical sector then cost one disk read, not
-  ; one revolution each. Key: cylinder, side, physical drive, sector.
+  ; Platforms with spare RAM give the BIOS a private sector buffer that no
+  ; overlay shares, so it can stay valid: further records of the same
+  ; physical sector cost no disk read and no copying.
+  ; Key: cylinder, side, physical drive, sector.
         LD      HL,BIO_PCYL
         LD      DE,BC_KEY
         LD      B,4
@@ -279,20 +281,16 @@ BC_CMP: LD      A,(DE)
         INC     HL
         INC     DE
         DJNZ    BC_CMP
-        LD      HL,PL_SBUF            ; hit: restore the shared buffer
-        LD      DE,BIO_PHYBF
-        LD      BC,PL_SLEN
-        LDIR
-        JR      BIO_SLOT
+        JR      BIO_SLOT                ; hit
 BC_MISS:CALL    BC_DROP
         LD      HL,BIO_PHYBF
         CALL    LY_DISK+9
         RET     NZ
-        LD      HL,BIO_PHYBF            ; remember it
-        LD      DE,PL_SBUF
-        LD      BC,PL_SLEN
+        LD      HL,BIO_PHYBF            ; publish the fresh sector where
+        LD      DE,LY_BUF               ; DC_INFO says the last physical
+        LD      BC,1024                 ; read is (DUP reads it there)
         LDIR
-        LD      HL,BIO_PCYL
+        LD      HL,BIO_PCYL             ; remember which sector it holds
         LD      DE,BC_KEY
         LD      BC,4
         LDIR

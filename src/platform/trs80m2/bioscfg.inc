@@ -6,7 +6,8 @@
 ; ********************************************************************************
 
 ; F400H-F7FFH is plain RAM on the Model II (the Model 4 keyboard lives there)
-; and lies above everything BetterCP/M owns: the BIOS keeps its one-sector
-; read cache there, sized for the largest sector BetterCP/M supports.
-PL_SBUF        EQU     0F400H          ; private copy of the last sector read
-PL_SLEN        EQU     1024
+; and lies above everything BetterCP/M owns. The BIOS uses it as its private
+; sector buffer (1K, the largest sector size), which no overlay shares, so it
+; doubles as a one-sector cache. Each sector actually read is also copied to
+; LY_BUF, the "last physical read" that DC_INFO publishes (DUP relies on it).
+PL_SBUF        EQU     0F400H

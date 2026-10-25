@@ -5,7 +5,7 @@
 # Cylinders 1.. are MFM, 16 x 512-byte sectors.
 use strict; use warnings;
 
-my %o = (cyl => 77, sides => 1, out => '');
+my %o = (cyl => 77, sides => 1, out => '', ilv => 1);
 my ($boot, $sys);
 while (@ARGV) {
     my $a = shift;
@@ -15,6 +15,7 @@ while (@ARGV) {
     elsif ($a eq '-cyl')   { $o{cyl}  = shift // die "-cyl needs N\n" }
     elsif ($a eq '-sides') { $o{sides}= shift // die "-sides needs 1|2\n" }
     elsif ($a eq '-out')   { $o{out}  = shift // die "-out needs FILE\n" }
+    elsif ($a eq '-interleave') { $o{ilv} = shift // die "-interleave needs N\n" }
     else                   { die "unknown argument $a (try -help)\n" }
 }
 $o{out} or do { usage(); exit 1 };
@@ -27,6 +28,8 @@ usage: mkm2imd.pl -out IMAGE.IMD [options]
   -cyl N       cylinders (default 77)
   -sides N     1 or 2 (default 1; cylinder 0 side 1 is MFM like the rest)
   -out FILE    output image
+  -interleave N  physical sector interleave on MFM cylinders (default 1);
+               DUP formats 8-inch disks 3:1
   -help        this list
 Unwritten sectors are filled with E5H.
 EOT
@@ -43,11 +46,20 @@ my $img = sprintf "IMD 1.18: %02d/%02d/%04d %02d:%02d:%02d\r\nBetterCP/M Model I
     $t[3], $t[4] + 1, $t[5] + 1900, $t[2], $t[1], $t[0];
 
 sub track {
-    my ($mode, $c, $h, $n, $szcode, $getdata) = @_;
+    my ($mode, $c, $h, $n, $szcode, $getdata, $ilv) = @_;
+    # Physical slot -> sector ID, ILEAVE:1 exactly as DUP lays tracks out:
+    # place sectors every $ilv slots, taking the next free slot when used.
+    my @order = (0) x $n;
+    my $pos = 0;
+    for my $id (1 .. $n) {
+        $pos = ($pos + 1) % $n while $order[$pos];
+        $order[$pos] = $id;
+        $pos = ($pos + ($ilv // 1)) % $n;
+    }
     my $out = pack 'C5', $mode, $c, $h, $n, $szcode;
-    $out .= pack 'C*', 1 .. $n;
+    $out .= pack 'C*', @order;
     my $len = 128 << $szcode;
-    for my $s (1 .. $n) {
+    for my $s (@order) {
         my $d = $getdata->($s);
         $d .= "\xE5" x ($len - length $d);
         if ($d eq substr($d, 0, 1) x $len) { $out .= "\x02" . substr($d, 0, 1) }
@@ -56,20 +68,21 @@ sub track {
     $out;
 }
 
-my $sysoff = 0;
+my $mfm = 0;                          # MFM tracks emitted so far
 for my $c (0 .. $o{cyl} - 1) {
     for my $h (0 .. $o{sides} - 1) {
         if ($c == 0 && $h == 0) {
             $img .= track(0, 0, 0, 26, 0, sub { my $s = shift;
                 my $p = ($s - 1) * 128; $p < length $bt ? substr($bt, $p, 128) : '' });
         } else {
-            $img .= track(3, $c, $h, 16, 2, sub {
-                my $d = $sysoff < length $sd ? substr($sd, $sysoff, 512) : '';
-                $sysoff += 512; $d });
+            my $base = $mfm++ * 16 * 512; # -sys data is in track, then sector ID, order
+            $img .= track(3, $c, $h, 16, 2, sub { my $s = shift;
+                my $p = $base + ($s - 1) * 512; $p < length $sd ? substr($sd, $p, 512) : '' },
+                $o{ilv});
         }
     }
 }
-die "system data (", length $sd, " bytes) does not fit\n" if length $sd > $sysoff;
+die "system data (", length $sd, " bytes) does not fit\n" if length $sd > $mfm * 16 * 512;
 
 open my $oh, '>:raw', $o{out} or die "$o{out}: $!\n";
 print $oh $img; close $oh;
