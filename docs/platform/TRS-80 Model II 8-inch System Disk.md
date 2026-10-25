@@ -179,7 +179,8 @@ the buffer without touching the disk. On a miss the fresh sector is also
 copied to the shared `LY_BUF`, where DUP and CONFIG expect it. Writes go
 through to the disk at once; the cache is dropped on a failed write, on a
 drive change and on console input (a disk may have been swapped), and the
-first read after a write fetches its sector again. Together with the interleave this took a 3.5K
-copy from drive A to drive B from over 80 seconds to under 8, and a 15K copy
-to about 11 seconds. Other targets (no `PL_SBUF`) keep using `LY_BUF` as
-before.
+first read after a write fetches its sector again.
+
+Together with the interleave this took a 3.5K copy from drive A to drive B
+from over 80 seconds to under 8, and a 15K copy to about 11 seconds. Other
+targets (no `PL_SBUF`) keep using `LY_BUF` as before.
