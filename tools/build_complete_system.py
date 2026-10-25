@@ -15,6 +15,15 @@ COMPONENTS = (
     "rsx_runtime_overlays", "fileloader", "system", "utilities", "ed",
     "trs80_boot", "adm3a", "screen_backends", "vt52", "ansi", "system_package",
 )
+import build_platform
+if build_platform.MODEL2:
+    # The Model II image builder replaces the Model 4 boot-disk builder; the
+    # Model 4 ROM/RAM inventory below does not apply.
+    COMPONENTS = tuple("trs80m2_image" if c == "trs80_boot" else c for c in COMPONENTS)
+    # M4SCRN is a Model 4 screen backend; the Model II has none yet.
+    COMPONENTS = tuple(c for c in COMPONENTS if c != "screen_backends")
+    at = COMPONENTS.index("utilities")
+    COMPONENTS = COMPONENTS[:at] + ("trs80m2_stage1",) + COMPONENTS[at:]
 if __name__ == "__main__":
     if CONTEXT:
         raise SystemExit('Checked-profile full-system integration is pending; build individual layout components for now.')
@@ -23,6 +32,8 @@ if __name__ == "__main__":
                        cwd=ROOT, check=True)
     # The ROM/RAM ownership inventory is tied to emitted symbol addresses. Run
     # its drift check only after every resident listing has been regenerated.
+    if build_platform.MODEL2:
+        raise SystemExit(0)
     subprocess.run([sys.executable,
                     str(ROOT / "tools/test_rom_ownership_inventory.py"),
                     "--platform", "trs80"],

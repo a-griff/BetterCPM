@@ -10,14 +10,17 @@ from pathlib import Path
 from add_cpm_file_to_dmk import extract_raw
 from startup_record import build as startup_record
 from system_layout import LAYOUT
+import build_platform
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUT = ROOT / "build/trs80/system-package"
+# Platform boot components; every other component is shared.
+BOOT_BUILD = "build/trs80m2" if build_platform.MODEL2 else "build/trs80"
+DEFAULT_OUT = ROOT / BOOT_BUILD / "system-package"
 PAYLOAD_SIZE = 20 * 1024
 
 COMPONENTS = (
-    ("BOOT.BIN", "build/trs80/boot.bin", 0, 512),
-    ("STAGE1.BIN", "build/trs80/stage1.bin", 512, 512),
+    ("BOOT.BIN", f"{BOOT_BUILD}/boot.bin", 0, 512),
+    ("STAGE1.BIN", f"{BOOT_BUILD}/stage1.bin", 512, 512),
     ("RESIDENT.BIN", "build/system/resident.bin", 1024, 52 * 128),
     ("CCPRELOD.BIN", "build/trs80/ccpreload.bin", 7680, 932),
     ("RSXSEL.BIN", "build/trs80/rsxselect.bin", 8612, 92),
@@ -76,7 +79,7 @@ def main() -> None:
     (output / "SYSTEM.SYS").write_bytes(package)
 
     boot_disk = ROOT / "build/trs80/BetterCPM-Extended-80T-DS-System-790K.dmk"
-    if boot_disk.is_file():
+    if not build_platform.MODEL2 and boot_disk.is_file():
         installed = extract_raw(boot_disk.read_bytes())[:PAYLOAD_SIZE]
         if package[128:] != installed:
             raise ValueError("SYSTEM.SYS payload differs from the installed boot image")

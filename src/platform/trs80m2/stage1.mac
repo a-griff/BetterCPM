@@ -1,16 +1,16 @@
         INCLUDE layout.inc
 
 ; ********************************************************************************
-; *                 BetterCP/M TRS-80 Model II Boot Track                        *
+; *                 BetterCP/M TRS-80 Model II Stage One                         *
 ; *                                                                              *
-; * The Model II ROM loads all 26 FM sectors of cylinder 0 at 0E00H, calls the   *
-; * 'DIAG' entry at 1404H and then jumps to the 'BOOT' entry at 1004H. Both      *
-; * enter here; we never return to the ROM. This replaces the Model 4's          *
-; * stage-zero and stage-one loaders: it reads the resident system from its      *
-; * generated sector table and enters BIOS BOOT.                                 *
+; * System package records 4-7, stored in FM sectors 5-8 of cylinder 0. The     *
+; * Model II ROM loads the whole FM track at 0E00H, so this record set lands at  *
+; * 1000H with the 'BOOT' signature the ROM requires. The ROM first calls the    *
+; * 'DIAG' stub at 1404H (written when the disk is formatted), which jumps to    *
+; * 1004H; the ROM's own final jump also enters 1004H.                           *
 ; *                                                                              *
-; * FM sectors 2-3 (0E80H-0F7FH) hold the saved startup record, which the CCP    *
-; * reads as logical records 1-2 of drive A track 0. The builder places it.      *
+; * Loads the 13 resident-system sectors from cylinder 1, sets IOBYTE and enters *
+; * BIOS BOOT. See docs/platform/TRS-80 Model II 8-inch System Disk.md.          *
 ; ********************************************************************************
 
         INCLUDE hardware.inc
@@ -20,17 +20,10 @@ SYSBOOT         EQU     LY_BIOS+0       ; BIOS BOOT initializes the console
 SYSSECTORS      EQU     LY_SECTS
 M2_READ_ONLY    EQU     1
 
-        ASEG
-        ORG     BT_LOAD                 ; anchor the binary at the ROM load address
-        DB      0FFH
+        CSEG
+        .PHASE  BT_BOOT
 
-        ORG     BT_BOOT
-        DB      'BOOT'
-        JP      STAGE1
-
-        ORG     BT_DIAG
-        DB      'DIAG'
-        JP      STAGE1                  ; never return: STAGE1 switches the ROM out
+        DB      'BOOT'                  ; ROM signature at 1000H; entry at 1004H
 
 STAGE1:
         DI
@@ -42,32 +35,28 @@ STAGE1:
   ; True cold entry owns IOBYTE. 95h: CON=CRT, RDR=PTR, PUN=PTP, LST=LPT.
         LD      A,095H
         LD      (0003H),A
-        LD      HL,SYSTABLE
-        LD      (SYSTABP),HL
+        LD      DE,SYSTABLE
         LD      HL,SYSIMAGE
-        LD      (SYSDEST),HL
-        LD      A,SYSSECTORS
-        LD      (SYSLEFT),A
+        LD      B,SYSSECTORS
 
 SYSLOAD:                                ; load next resident-system sector
-        LD      HL,(SYSTABP)
-        LD      A,(HL)
+        PUSH    BC
+        EX      DE,HL
+        LD      A,(HL)                  ; cylinder
         INC     HL
-        LD      B,(HL)
+        LD      B,(HL)                  ; side
         INC     HL
-        LD      C,(HL)
+        LD      C,(HL)                  ; sector
         INC     HL
-        LD      (SYSTABP),HL
-        LD      HL,(SYSDEST)
-        CALL    M2_READ
+        EX      DE,HL
+        PUSH    DE
+        CALL    M2_READ                 ; HL advances past the sector
+        POP     DE
+        POP     BC
         JR      NZ,SYSERROR
-        LD      (SYSDEST),HL
-        LD      A,(SYSLEFT)
-        DEC     A
-        LD      (SYSLEFT),A
-        JR      NZ,SYSLOAD
-  ; A is zero after the final sector. A true cold start has no interrupted
-  ; lookup to recover; leave warm reconstruction's recovery state untouched.
+        DJNZ    SYSLOAD
+  ; A is zero here. A true cold start has no interrupted lookup to recover;
+  ; leave warm reconstruction's recovery state untouched.
         LD      (0048H),A
         JP      SYSBOOT
 
@@ -104,16 +93,12 @@ ERRLEN  EQU     $-ERRMSG
 SYSTABLE:                               ; resident-system sector table
   ; @resident-sector-table@
 
-SYSTABP:  DW    0
-SYSDEST:  DW    SYSIMAGE
-SYSLEFT:  DB    SYSSECTORS
 B_PDrive: DB    1                       ; the system always loads from drive 0
 
         INCLUDE m2disk.inc
 
-        IF      $ GT BT_END-1
-        DB      BOOT_TRACK_OVERFLOW     ; undefined: forces an assembly error
+        IF      $ GT BT_BOOT+512
+        DB      STAGE1_OVERFLOW         ; undefined: forces an assembly error
         ENDIF
-        ORG     BT_END-1
-        DB      0
+        .DEPHASE
         END

@@ -8,7 +8,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0
     },
@@ -33,12 +34,23 @@
       "role": "editable cold-boot startup script"
     },
     {
+      "name": "STARTUP.SUB",
+      "artifact": "src/distribution/trs80m2/STARTUP.SUB",
+      "status": "implemented",
+      "targets": [
+        "trs80m2"
+      ],
+      "user": 0,
+      "role": "editable cold-boot startup script"
+    },
+    {
       "name": "DIR.COM",
       "artifact": "build/utilities/DIR.COM",
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0,
       "features": [
@@ -51,7 +63,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0
     },
@@ -61,7 +74,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0
     },
@@ -71,7 +85,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0
     },
@@ -81,7 +96,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0
     },
@@ -91,7 +107,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0
     },
@@ -101,7 +118,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0
     },
@@ -111,7 +129,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0
     },
@@ -121,7 +140,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0
     },
@@ -131,7 +151,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0
     },
@@ -141,7 +162,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0
     },
@@ -151,7 +173,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0
     },
@@ -161,7 +184,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0
     },
@@ -171,7 +195,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0
     },
@@ -181,7 +206,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0
     },
@@ -191,7 +217,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0
     },
@@ -220,7 +247,8 @@
       "role": "runtime dependency",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0
     },
@@ -229,7 +257,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "artifact": "build/utilities/PIP.COM",
       "user": 0
@@ -239,7 +268,8 @@
       "status": "implemented",
       "targets": [
         "z80pack",
-        "trs80gp"
+        "trs80gp",
+        "trs80m2"
       ],
       "user": 0,
       "artifact": "build/utilities/ED.COM"

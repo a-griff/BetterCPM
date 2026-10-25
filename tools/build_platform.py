@@ -27,8 +27,11 @@ TABLES_SOURCE = "src/platform/trs80m2/tables.mac" if MODEL2 else "src/bios/table
 def system_sector(n: int) -> tuple[int, int, int]:
     """Cylinder, side and sector ID of 512-byte system-area sector n."""
     if MODEL2:
-        # Cylinder 0 is the FM boot track; the system area starts at
-        # cylinder 1, sixteen 512-byte sectors per cylinder, side 0.
+        # Package sectors 0-1 (records 0-7) live on the FM boot track; sector
+        # n >= 2 follows from cylinder 1, sixteen 512-byte sectors per cylinder.
+        if n < 2:
+            raise ValueError("Model II package sectors 0-1 are boot-track records")
+        n -= 2
         return 1 + n // 16, 0, n % 16 + 1
     order = (1, 3, 5, 7, 9, 2, 4, 6, 8, 10)
     return n // 20, n // 10 % 2, order[n % 10]

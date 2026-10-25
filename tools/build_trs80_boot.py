@@ -93,9 +93,17 @@ def cpm_name(name: str) -> tuple[bytes, bytes]:
 
 def install_files(raw: bytearray,
                   files: list[tuple[str, bytes] | tuple[str, bytes, int]
-                              | tuple[str, bytes, int, int]]) -> None:
-    """Install files in the active 2K/16-bit CP/M layout."""
-    directory = FILESYSTEM_FIRST_SECTOR * SECTOR_SIZE
+                              | tuple[str, bytes, int, int]],
+                  directory: int | None = None,
+                  block_count: int | None = None) -> None:
+    """Install files in a 2K/16-bit CP/M layout (Model 4 790K by default).
+
+    directory is the byte offset of the directory in raw; block_count is DSM+1.
+    """
+    if directory is None:
+        directory = FILESYSTEM_FIRST_SECTOR * SECTOR_SIZE
+    if block_count is None:
+        block_count = BLOCK_COUNT
     next_entry = 0
     next_block = FIRST_DATA_BLOCK
     expanded = []
@@ -140,7 +148,7 @@ def install_files(raw: bytearray,
                     entry[9 + attribute] |= 0x80
             entry[12], entry[14], entry[15] = extent & 0x1F, extent >> 5, records_here
             for slot in range(blocks_here):
-                if next_block >= BLOCK_COUNT:
+                if next_block >= block_count:
                     raise ValueError("files exceed the available filesystem capacity")
                 entry[16 + slot * 2:18 + slot * 2] = next_block.to_bytes(2, "little")
                 chunk = padded[content_at:content_at + ALLOCATION_BLOCK_BYTES]
