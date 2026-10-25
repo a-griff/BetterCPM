@@ -16,7 +16,7 @@ MODEL2 = NAME == "trs80m2"
 DIR = ROOT / "src/platform" / NAME
 
 # Files the BIOS build stages next to bios.mac.
-BIOS_INCLUDES = (("hardware.inc", "m2cons.inc", "m2scroll.inc", "m2disk.inc")
+BIOS_INCLUDES = (("hardware.inc", "m2cons.inc", "m2scroll.inc", "m2disk.inc", "m2clock.inc")
                  if MODEL2 else
                  ("hardware.inc", "m4cons.inc", "m4scroll.inc", "m4disk.inc"))
 BIOSPLAT = DIR / "biosplat.inc" if MODEL2 else ROOT / "src/bios/biosplat.inc"

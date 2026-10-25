@@ -471,6 +471,7 @@ The System Disk contains the operating system and the following user-0 files. Th
 | Both platforms: support files | `README.TXT`, `STARTUP.SUB`, `DISK.FDB`, `RCP.CPX`, `R3PACK.RSX` |
 | Both platforms: portable monitors and tests | `ADM3A.RSX`, `ADMTST.COM`, `VT52.RSX`, `VT52TST.COM`, `ANSI.RSX`, `ANSITST.COM` |
 | TRS-80 Model 4 / trs80gp only | `M4SCRN.RSX`, `FREHDCLK.RSX` (requires FreHD hardware or emulation) |
+| TRS-80 Model II only | `M2CLK.RSX` (software clock; set it after loading) |
 | z80pack / cpmsim only | `ANSISCRN.RSX`, `ZPRTC.RSX`, `BYE.COM` |
 
 A supplied clock provider is available for explicit loading; neither platform loads one by default. Model 4 startup does load its screen backend and ADM-3A personality, as shown in [Section 7.3](#section-7-3).
@@ -3846,12 +3847,13 @@ Both arrangements use the same TIME utility.
 
 Clock support is supplied by Resident System Extensions, or RSXs.
 
-BetterCP/M 1.0 includes two clock providers:
+BetterCP/M includes three clock providers:
 
 | Provider | Environment | Extension |
 |---|---|---|
 | FreHD | TRS-80 Model 4 with FreHD | `FREHDCLK.RSX` |
 | z80pack | z80pack/cpmsim | `ZPRTC.RSX` |
+| Model II | TRS-80 Model II | `M2CLK.RSX` |
 
 Neither provider is loaded automatically merely because its file is present on the system disk.
 
@@ -3867,6 +3869,15 @@ Under z80pack:
 
 ```text
 A0>RSX LOAD ZPRTC
+```
+
+On a TRS-80 Model II, which has no battery-backed clock, load the provider and
+then set the date and time; the clock keeps time until the machine is reset or
+turned off:
+
+```text
+A0>RSX LOAD M2CLK
+A0>TIME /SET 10/25/26 15:30
 ```
 
 Once the provider is installed, TIME can obtain the current date and time.
@@ -3944,25 +3955,25 @@ The appropriate remedy depends on the platform.
 
 BetterCP/M's TIME utility includes a command for requesting that a clock be set.
 
-However, **the FreHD and z80pack providers supplied with BetterCP/M 1.0 are read-only**.
-
-Consequently, attempts to set the clock through either provider are rejected.
-
-The SET facility is nevertheless implemented in TIME.COM and is available for use with clock providers that support it.
+The FreHD and z80pack providers are read-only, so attempts to set the clock through either of them are rejected. The TRS-80 Model II provider, `M2CLK.RSX`, is writable: its clock starts when it is first set.
 
 ##### The SET Command
 
-The command has the following form:
+The command has two forms:
 
 ```text
+TIME /SET MM/DD/YY[YY] HH:MM[:SS]
 TIME /SET LL HH HR MN SC
 ```
 
-The five arguments represent the date and time in BetterCP/M's native clock-record format.
+The first takes an ordinary date and 24-hour time. The month and day are two digits each. A two-digit year from 78 to 99 means 1978-1999, and 00 to 77 means 2000-2077; a four-digit year may be 1978 through 2157, the range of the CP/M day count. Seconds default to zero. For example:
 
-Unlike the date-setting commands found in some operating systems, TIME does not accept an ordinary calendar-date string.
+```text
+A0>TIME /SET 10/25/26 15:30
+A0>TIME /SET 10/25/2026 15:30:45
+```
 
-Instead, the arguments are five two-digit hexadecimal values.
+The second form gives the date and time in BetterCP/M's native clock-record format: five two-digit hexadecimal values.
 
 The first two bytes represent the day count, with the low byte first. The remaining three bytes represent the hour, minute, and second in packed-BCD notation.
 
@@ -3974,7 +3985,7 @@ A0>TIME /SET 01 00 12 34 56
 
 requests day 1 of the CP/M clock epoch, January 1, 1978, at 12:34:56.
 
-The example illustrates the syntax. It will not set the clock when either of the standard BetterCP/M 1.0 providers is installed.
+With FreHD or z80pack the example illustrates the syntax only; those providers do not set the clock.
 
 ##### Unsupported Clock Setting
 
@@ -3986,9 +3997,9 @@ This is the expected result with both `FREHDCLK.RSX` and `ZPRTC.RSX`.
 
 ##### Invalid Date and Time Values
 
-TIME checks the supplied hexadecimal values before requesting a clock-setting operation.
+TIME checks the supplied values before requesting a clock-setting operation.
 
-For example, it rejects malformed hexadecimal arguments, invalid packed-BCD values, and out-of-range hours, minutes, or seconds.
+For example, it rejects dates that do not exist (such as 02/30 or 02/29 in a year that is not a leap year), years outside 1978-2157, malformed hexadecimal arguments, invalid packed-BCD values, and out-of-range hours, minutes, or seconds.
 
 Invalid command arguments produce a usage message.
 
@@ -8395,17 +8406,18 @@ For further information about drive/user specifications and file attributes, see
 
 TIME uses BetterCP/M's resident clock services. It does not communicate directly with individual clock devices.
 
-BetterCP/M 1.0 includes read-only clock providers for FreHD and z80pack.
+BetterCP/M includes read-only clock providers for FreHD and z80pack and a writable software clock for the TRS-80 Model II.
 
 ##### Syntax
 
 ```text
 TIME
 TIME /PROVIDER
+TIME /SET MM/DD/YY[YY] HH:MM[:SS]
 TIME /SET LL HH HR MN SC
 ```
 
-The first form displays the date and time. The second identifies the installed clock provider. The third requests a clock-setting operation.
+The first form displays the date and time. The second identifies the installed clock provider. The last two request a clock-setting operation, from a calendar date or from the native clock record.
 
 ##### Displaying the Date and Time
 
@@ -8433,7 +8445,15 @@ A0>RSX LOAD ZPRTC
 A0>TIME
 ```
 
-If no clock provider is installed, TIME reports that the required service is unavailable.
+On a TRS-80 Model II:
+
+```text
+A0>RSX LOAD M2CLK
+A0>TIME /SET 10/25/26 15:30
+A0>TIME
+```
+
+If no clock provider is installed, TIME reports that the required service is unavailable. If a provider is installed but its clock is unavailable (for example, the Model II clock before it has been set), TIME says so.
 
 ##### Identifying the Provider
 
@@ -8445,24 +8465,33 @@ A0>TIME /PROVIDER
 
 TIME displays information about the installed clock provider, including its identity, interface version, and capabilities.
 
-The two providers supplied with BetterCP/M 1.0 are:
+The supplied providers are:
 
 | Provider | Extension | Capabilities |
 |---|---|---|
 | FreHD | `FREHDCLK.RSX` | Read-only |
 | z80pack | `ZPRTC.RSX` | Read-only |
+| Model II | `M2CLK.RSX` | Read and set |
 
 The provider information can help determine which clock service is active and whether it supports setting the clock.
 
 ##### Setting the Clock
 
-TIME includes the following SET syntax:
+TIME accepts a calendar date and 24-hour time:
+
+```text
+TIME /SET MM/DD/YY[YY] HH:MM[:SS]
+```
+
+Two-digit years 78-99 mean 1978-1999 and 00-77 mean 2000-2077. Four-digit years may be 1978 through 2157. Seconds default to zero. TIME rejects dates that do not exist and converts valid ones to the native clock record itself.
+
+It also accepts the native record directly:
 
 ```text
 TIME /SET LL HH HR MN SC
 ```
 
-The arguments are five two-digit hexadecimal bytes representing BetterCP/M's native clock record.
+These arguments are five two-digit hexadecimal bytes.
 
 | Argument | Meaning |
 |---|---|
@@ -8490,9 +8519,7 @@ Malformed hexadecimal values, invalid BCD digits, and out-of-range time fields a
 
 ##### Clock-Setting Limitations
 
-**Neither clock provider supplied with BetterCP/M 1.0 supports setting the clock.**
-
-Consequently, a valid SET request is rejected as unsupported when either `FREHDCLK.RSX` or `ZPRTC.RSX` is installed.
+**The FreHD and z80pack providers do not support setting the clock.** A valid SET request is rejected as unsupported when either `FREHDCLK.RSX` or `ZPRTC.RSX` is installed. `M2CLK.RSX` supports SET.
 
 The existing clock value remains unchanged.
 
@@ -10447,7 +10474,7 @@ Use this appendix to find a command form or switch, then follow its reference fo
 | STAT | `STAT [filespec]`, `STAT MEM` | File options `$S`, `$R/O`, `$R/W`, `$SYS`, `$DIR`; status/device forms below | [§16.2](#section-16-2) |
 | SUBMIT | `SUBMIT filename [parameters]` | `$1`–`$9`, literal `$$`, 125 expanded bytes per line, 2K aggregate buffer; writable A0 queue | [§17.1](#section-17-1) |
 | SYSGEN | `SYSGEN source: target:`, `SYSGEN source:`, `SYSGEN package target:` | Install from disk/package or export installed system; target geometry must match | [§16.5](#section-16-5) |
-| TIME | `TIME`, `TIME /PROVIDER`, `TIME /SET LL HH HR MN SC` | SET takes five hexadecimal bytes; supplied providers are read-only | [§16.3](#section-16-3) |
+| TIME | `TIME`, `TIME /PROVIDER`, `TIME /SET MM/DD/YY[YY] HH:MM[:SS]`, `TIME /SET LL HH HR MN SC` | SET takes a calendar date or five hexadecimal bytes; only the Model II provider can be set | [§16.3](#section-16-3) |
 | TYPE | `TYPE filespec`, `:TYPE filespec /P` | `/P` selects transient paging | [§14.4](#section-14-4) |
 | USER | `USER n` | Decimal user 0–31; `B:`, `5:` and `C3:` also navigate | [§15.1](#section-15-1) |
 | VER | `VER`, `VER /V` | Transient `:VER /BANNER` displays the startup banner | [§15.3](#section-15-3) |

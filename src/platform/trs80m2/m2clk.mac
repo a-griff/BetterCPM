@@ -1,0 +1,190 @@
+; ********************************************************************************
+; *                    BetterCP/M TRS-80 Model II TIME RSX                       *
+; *                                                                              *
+; * TIME ABI 1.0 provider for the Model II software clock kept by the BIOS      *
+; * (m2clock.inc). The BIOS owns the clock record, tick handler and mode-2      *
+; * vector at fixed addresses, so this module holds no live state and can be    *
+; * moved, unloaded and reloaded freely; the clock keeps running regardless.   *
+; *                                                                              *
+; * The clock starts on the first SET: the provider programs CTC channel 3      *
+; * (4 MHz / 256 / 125 = 125 Hz), selects interrupt mode 2 and enables          *
+; * interrupts. GET reports UNAVAILABLE until then, and whenever interrupts     *
+; * have been left disabled or the I register no longer selects the clock      *
+; * vector (a program took over the interrupt system), rather than return a    *
+; * time that has stopped.                                                       *
+; *                                                                              *
+; * The Model II build prepends MC_CLK, MC_TICK, MC_RUN, MC_VEC and MC_HZ from   *
+; * the BIOS listing.                                                            *
+; ********************************************************************************
+
+
+RSXBASE         EQU     08000H
+BDOS            EQU     00005H
+PIOACTL         EQU     0E2H            ; PIO port A control
+PIOBCTL         EQU     0E3H            ; PIO port B control
+CTC0            EQU     0F0H            ; CTC channel 0 (vector register)
+CTC3            EQU     0F3H            ; CTC channel 3
+CTC_TIMER       EQU     0A7H            ; interrupt, timer, /256, auto start,
+                                        ; time constant follows, reset
+PIO_NOINT       EQU     003H            ; PIO interrupt control: disabled
+
+        CSEG
+        .PHASE  RSXBASE
+
+; ================================================================================
+; =                         RSX Entry and TIME Dispatch                          =
+; ================================================================================
+
+MK_NEXT:        DW      BDOS            ; next RSX descriptor pointer
+MK_ENTRY:       DW      MK_DISPATCH     ; RSX entry pointer
+MK_CALLS:       DB      0,0             ; TIME service-call count
+                DW      0
+
+MK_DISPATCH:                            ; chain every BDOS call
+        LD      HL,(MK_NEXT)
+        JP      (HL)
+
+; -------------------------------------------------------------------------------
+; TIME ABI Services
+; -------------------------------------------------------------------------------
+
+MK_SERVICE:                             ; dispatch TIME ABI service
+        PUSH    DE
+        LD      A,(DE)
+        CP      1
+        JP      NZ,MK_TVER
+        INC     DE
+        LD      A,(DE)
+        CP      10
+        JP      NZ,MK_TLEN
+        INC     DE
+        LD      A,(DE)                  ; operation
+        LD      C,A
+        INC     DE
+        LD      A,(DE)                  ; flags
+        OR      A
+        JP      NZ,MK_TFLAGS
+        LD      HL,6
+        ADD     HL,DE                   ; request +9, reserved
+        LD      A,(HL)
+        OR      A
+        JP      NZ,MK_TFLAGS
+        INC     DE                      ; DE = request +4, the record
+        LD      A,C
+        OR      A
+        JR      Z,MK_GET
+        DEC     A
+        JR      Z,MK_SET
+        LD      A,3                     ; BAD_OPERATION
+        JP      MK_TFAIL
+
+; -------------------------------------------------------------------------------
+; GET: copy one coherent record while the tick handler is held off
+; -------------------------------------------------------------------------------
+
+MK_GET: LD      A,(MC_RUN)
+        OR      A
+        JP      Z,MK_TUNAV              ; never set
+        LD      A,I                     ; P/V = IFF2 (read twice: an interrupt
+        JP      PE,MK_GETON             ; during LD A,I can clear P/V on NMOS Z80s)
+        LD      A,I
+        JP      PO,MK_TUNAV             ; interrupts off: the clock is not running
+MK_GETON:
+        CP      HIGH MC_VEC
+        JR      NZ,MK_TUNAV             ; another vector table is in use
+        DI
+        LD      HL,MC_CLK
+        LD      BC,5
+        PUSH    DE
+        LDIR
+        EI
+        POP     HL                      ; HL = request +4
+        POP     DE
+        XOR     A
+        RET
+
+; -------------------------------------------------------------------------------
+; SET: validate the whole record, then load it and (re)start the timer
+; -------------------------------------------------------------------------------
+
+MK_SET: LD      A,(DE)                  ; day 0 is before the CP/M epoch
+        LD      L,A
+        INC     DE
+        LD      A,(DE)
+        OR      L
+        JR      Z,MK_TINVALID
+        INC     DE
+        LD      C,24H                   ; hour
+        CALL    MK_BCD
+        JR      NC,MK_TINVALID
+        LD      C,60H                   ; minute
+        CALL    MK_BCD
+        JR      NC,MK_TINVALID
+        CALL    MK_BCD                  ; second
+        JR      NC,MK_TINVALID
+        DEC     DE                      ; DE = request +4 again
+        DEC     DE
+        DEC     DE
+        DEC     DE
+        DEC     DE
+        DI
+        PUSH    DE
+        EX      DE,HL
+        LD      DE,MC_CLK
+        LD      BC,5
+        LDIR
+        LD      A,MC_HZ                 ; the new second starts now
+        LD      (MC_TICK),A
+        LD      A,PIO_NOINT             ; only the CTC may interrupt
+        OUT     (PIOACTL),A
+        OUT     (PIOBCTL),A
+        LD      A,HIGH MC_VEC
+        LD      I,A
+        LD      A,MC_VEC AND 00F8H      ; vector base; channel 3 adds 6
+        OUT     (CTC0),A
+        LD      A,CTC_TIMER
+        OUT     (CTC3),A
+        LD      A,MC_HZ
+        OUT     (CTC3),A                ; time constant
+        IM      2
+        LD      A,1
+        LD      (MC_RUN),A
+        EI
+        POP     HL                      ; HL = request +4
+        POP     DE
+        XOR     A
+        RET
+
+  ; Check the BCD byte at DE: both nibbles decimal and the value below C.
+  ; Return carry if valid; DE advances.
+MK_BCD: LD      A,(DE)
+        INC     DE
+        LD      B,A
+        AND     0FH
+        CP      10
+        RET     NC
+        LD      A,B
+        CP      C
+        RET
+
+; -------------------------------------------------------------------------------
+; Failures: A = TIME ABI status, HL = 0, DE = request
+; -------------------------------------------------------------------------------
+
+MK_TVER:        LD      A,1             ; BAD_REQUEST_VERSION
+        JR      MK_TFAIL
+MK_TLEN:        LD      A,2             ; BAD_REQUEST_LENGTH
+        JR      MK_TFAIL
+MK_TFLAGS:      LD      A,4             ; BAD_FLAGS_OR_RESERVED_FIELD
+        JR      MK_TFAIL
+MK_TUNAV:       LD      A,5             ; UNAVAILABLE_OR_HARDWARE_FAILURE
+        JR      MK_TFAIL
+MK_TINVALID:    LD      A,6             ; INVALID_CLOCK_RECORD
+
+MK_TFAIL:
+        POP     DE
+        LD      HL,0
+        RET
+
+        .DEPHASE
+        END

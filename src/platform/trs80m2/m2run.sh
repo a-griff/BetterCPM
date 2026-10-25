@@ -3,7 +3,7 @@
 usage() {
     cat <<EOF
 usage: m2run.sh [options] IMAGE
-  -wait MS     milliseconds to run before capturing (default 8000)
+  -wait N      60 Hz frames to run before capturing (default 8000)
   -d1 IMAGE    image for drive 1
   -keys TEXT   type TEXT after -wait, then wait again (\\r = Enter)
   -emu PATH    trs80gp binary (default \$TRS80GP or trs80gp on PATH)
@@ -25,7 +25,7 @@ done
 [ -n "$IMG" ] || { usage; exit 1; }
 IMG=$(realpath "$IMG"); [ -n "$D1" ] && D1=$(realpath "$D1")
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
-ARGS=(-m2 -batch -turbo -d0 "$IMG")
+ARGS=(-m2 -batch -turbo -itime 0 -d0 "$IMG")
 [ -n "$D1" ] && ARGS+=(-d1 "$D1")
 ARGS+=(-id "$WAIT")
 [ -n "$KEYS" ] && ARGS+=(-i "$KEYS" -id "$WAIT")

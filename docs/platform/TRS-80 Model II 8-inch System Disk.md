@@ -164,8 +164,10 @@ The first command builds the resident system, utilities, catalogue and the
 image `build/trs80m2/BetterCPM-Model2-77T-SS-System-584K.imd`. The test script
 boots it under trs80gp (headless through `xvfb-run` when there is no display)
 and checks cold boot and banner, DIR/STAT, COPY, CONFIG, DUP format of a blank
-disk, SYSGEN onto it and booting that disk, and, with `-pt`, read access to a
-Pickles & Trout disk. Without `BETTERCPM_PLATFORM` the build is the Model 4
+disk, SYSGEN onto it and booting that disk, loading M2CLK.RSX and setting and
+reading the clock, and, with `-pt`, read access to a Pickles & Trout disk.
+`tools/test_time_date.py` checks TIME's calendar-date SET against Python's
+calendar. Without `BETTERCPM_PLATFORM` the build is the Model 4
 build, unchanged. `src/platform/trs80m2/bttest.mac` is a standalone boot-track
 probe of the controller, DMA and FM/MFM paths, useful when bringing up real
 hardware.
@@ -181,6 +183,70 @@ through to the disk at once; the cache is dropped on a failed write, on a
 drive change and on console input (a disk may have been swapped), and the
 first read after a write fetches its sector again.
 
-Together with the interleave this took a 3.5K copy from drive A to drive B
-from over 80 seconds to under 8, and a 15K copy to about 11 seconds. Other
-targets (no `PL_SBUF`) keep using `LY_BUF` as before.
+Other targets (no `PL_SBUF`) keep using `LY_BUF` as before. The miss path copies
+only the sector actually read: the RSX selector overlay runs from the top of
+`LY_BUF` (F3A4H) and a full 1K copy would overwrite it.
+
+Measured under trs80gp with the Model II clock (each figure includes about
+4 seconds to load TIME.COM; trs80gp's `-id` waits are 60 Hz frames):
+
+| Copy | Time |
+| --- | --- |
+| README.TXT (3.5K), drive A to drive B | about 40 s |
+| README.TXT (3.5K), drive A to drive A | about 19 s |
+| CONFIG.COM (15.6K), drive A to drive B | about 171 s |
+| CONFIG.COM (15.6K), drive B to drive A | about 182 s |
+
+Copies between drives are still slow, roughly 90 bytes per second. The cache
+and interleave removed the extra revolution per record. What remains has not
+been profiled yet; the shared allocation vector rescans the directory on
+every drive change, and writes go through one record at a time.
+
+## Software clock
+
+The Model II has no battery-backed clock. Its hardware real-time interrupt
+(vertical sync divided by two, 30 Hz, enabled by port FFH bit 5 and cleared by
+reading port FEH) is a non-maskable interrupt, so it always enters 0066H. Under
+CP/M that address lies inside the default FCB at 005CH, which every command
+line overwrites, so BetterCP/M leaves the RTC interrupt disabled.
+
+The clock uses CTC channel 3 instead. That channel otherwise only counts
+keyboard interrupts (BetterCP/M polls the keyboard) and has no output pin, so
+no serial baud rate is affected:
+
+| Item | Value |
+| --- | --- |
+| Timer | CTC channel 3 (port F3H), control A7H: interrupt, timer, prescaler 256, automatic start |
+| Rate | 4 MHz / 256 / 125 = 125 interrupts per second exactly |
+| Interrupts | Mode 2; I = high byte of `MC_VEC`, CTC vector = `MC_VEC` AND F8H (channel 3 adds 6) |
+| Record | TIME ABI 1.0: day count (day 1 = 1978-01-01), BCD hour, minute, second |
+| Stack use | 10 bytes of the interrupted program's stack |
+
+The tick handler, clock record and vector (`src/platform/trs80m2/m2clock.inc`,
+about 70 bytes) live in the BIOS, at fixed addresses that never move.
+`M2CLK.RSX` (`m2clk.mac`) is a stateless TIME provider that links to them at
+build time, so it can be loaded, moved or unloaded without affecting the clock.
+Interrupts stay disabled until the first SET, which loads the record, disables
+PIO interrupts, programs the CTC, selects mode 2 and enables interrupts. GET
+reports UNAVAILABLE (status 5) before that, and whenever interrupts are found
+disabled or the I register no longer points at the clock vector, rather than
+return a stopped time.
+
+```text
+A0>RSX LOAD M2CLK
+A0>TIME /SET 10/25/26 15:30
+A0>TIME
+```
+
+A program that keeps interrupts disabled for longer than 8 ms loses ticks, and
+one that installs its own interrupt-mode-2 table or reprograms the CTC vector
+stops the clock until it is set again. Clock interrupts do not disturb disk
+transfers, which the DMA performs.
+
+## RSX loading
+
+The Model 4 boot-disk builder rebuilds the RSX overlay selector
+(`rsxsel.mac`), whose sector table depends on the platform layout, as one of
+its own steps. The Model II build now does this as the `rsxselect` component.
+Before that, Model II disks carried a selector with Model 4 sector addresses
+and every `RSX LOAD` failed.

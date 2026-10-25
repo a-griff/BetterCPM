@@ -766,6 +766,22 @@
       "tracking": "initial",
       "dependency_status": "roots-only; selected dependency closure pending"
     },
+    "module:M2CLK": {
+      "kind": "loadable module",
+      "version": "0.1",
+      "placement": "System",
+      "roots": [
+        "src/platform/trs80m2/m2clk.mac",
+        "src/platform/trs80m2/m2clock.inc"
+      ],
+      "builders": [
+        "tools/build_m2clk_rsx.py"
+      ],
+      "revision": 1,
+      "api_version": null,
+      "tracking": "initial",
+      "dependency_status": "roots-only; selected dependency closure pending"
+    },
     "module:FREHDCLK": {
       "kind": "loadable module",
       "version": "0.2",

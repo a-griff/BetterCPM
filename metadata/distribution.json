@@ -240,6 +240,15 @@
       "user": 0
     },
     {
+      "name": "M2CLK.RSX",
+      "artifact": "build/rsx/M2CLK.RSX",
+      "status": "implemented",
+      "targets": [
+        "trs80m2"
+      ],
+      "user": 0
+    },
+    {
       "name": "FREHDCLK.RSX",
       "artifact": "build/rsx/FREHDCLK.RSX",
       "status": "implemented",

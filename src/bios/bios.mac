@@ -286,10 +286,15 @@ BC_MISS:CALL    BC_DROP
         LD      HL,BIO_PHYBF
         CALL    LY_DISK+9
         RET     NZ
-        LD      HL,BIO_PHYBF            ; publish the fresh sector where
-        LD      DE,LY_BUF               ; DC_INFO says the last physical
-        LD      BC,1024                 ; read is (DUP reads it there)
-        LDIR
+        LD      DE,BIO_PHYBF            ; HL = end of the sector read
+        OR      A
+        SBC     HL,DE
+        LD      B,H                     ; BC = its length; copying more
+        LD      C,L                     ; would overwrite overlays that
+        EX      DE,HL                   ; live above it in LY_BUF
+        LD      DE,LY_BUF               ; publish the fresh sector where
+        LDIR                            ; DC_INFO says the last physical
+                                        ; read is (DUP reads it there)
         LD      HL,BIO_PCYL             ; remember which sector it holds
         LD      DE,BC_KEY
         LD      BC,4

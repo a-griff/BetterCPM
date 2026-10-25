@@ -136,6 +136,9 @@
     "module:FREHDCLK": [
       "build/rsx/FREHDCLK.RSX"
     ],
+    "module:M2CLK": [
+      "build/rsx/M2CLK.RSX"
+    ],
     "module:ADM3A": [
       "build/rsx/ADM3A.RSX"
     ],

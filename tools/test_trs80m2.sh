@@ -36,15 +36,19 @@ WORK=$(mktemp -d); [ -n "$KEEP" ] && { mkdir -p "$KEEP"; WORK=$(cd "$KEEP" && pw
 XVFB=""; [ -z "$DISPLAY" ] && XVFB="xvfb-run -a"
 PASS=0; FAIL=0
 
-# run NAME DRIVE0 DRIVE1|- WAITFRAMES KEYS : boot, type KEYS, wait, save screen text
+# run NAME DRIVE0 DRIVE1|- WAITFRAMES KEYS [KEYS2 WAIT2FRAMES] : boot, type KEYS,
+# wait, optionally type KEYS2 and wait again, save screen text. trs80gp counts
+# waits in 60 Hz frames.
 run() {
-    local name=$1 d0=$2 d1=$3 wait=$4 keys=$5 dir="$WORK/$1"
+    local name=$1 d0=$2 d1=$3 wait=$4 keys=$5 keys2=$6 wait2=$7 dir="$WORK/$1"
     mkdir -p "$dir"; rm -f "$dir"/trs80-text-*.bin
-    local args=(-m2 -batch -turbo -d0 "$d0")
+    local args=(-m2 -batch -turbo -itime 0 -d0 "$d0")
     [ "$d1" != "-" ] && args+=(-d1 "$d1")
     args+=(-id 9000)
     [ -n "$keys" ] && args+=(-i "$keys")
-    args+=(-id "$wait" -it -ix)
+    args+=(-id "$wait")
+    [ -n "$keys2" ] && args+=(-i "$keys2" -id "$wait2")
+    args+=(-it -ix)
     ( cd "$dir" && timeout 1200 $XVFB "$EMU" "${args[@]}" >emu.log 2>&1 )
     perl -e 'local $/; open my $f,"<:raw",$ARGV[0] or exit 1; my $s=<$f>;
       for my $r (0..23) { my $l=substr($s,$r*80,80); $l=~tr/\x80-\xff/\x00-\x7f/;
@@ -94,6 +98,13 @@ expect newboot "A0>"
 if grep -qF "BOOT ERROR" "$WORK/newboot/screen.txt"; then
     echo "FAIL  newboot: ROM refused the new disk"; FAIL=$((FAIL + 1)); PASS=$((PASS - 1))
 fi
+
+# The software clock: unavailable until set, then counts real (emulated) time.
+# Set 12:00:00, wait 90 seconds (5400 frames) less the time taken to set it,
+# then read it back: the minute must have advanced exactly once.
+run clock "$(disk clock)" - 5400 $'CLS\rRSX LOAD M2CLK\rTIME\rTIME /PROVIDER\rTIME /SET 10/25/26 12:00\r' \
+    $'TIME\r' 1800
+expect clock "Clock unavailable" "Provider: M2CLK" "GET/SET" "Clock set." "2026-10-25 12:01:"
 
 if [ -n "$PT" ]; then
     cp "$PT" "$WORK/pt.imd"

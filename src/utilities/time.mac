@@ -167,7 +167,13 @@ TM_PSPACE:                              ; skip command spaces
 
 TM_PARG:                                ; parse command argument
         LD      A,B
-        CP      19
+        CP      19                      ; hex record, or MM/DD/YY HH:MM
+        JP      Z,TM_SPAR
+        CP      21                      ; MM/DD/YYYY HH:MM
+        JP      Z,TM_SPAR
+        CP      22                      ; MM/DD/YY HH:MM:SS
+        JP      Z,TM_SPAR
+        CP      24                      ; MM/DD/YYYY HH:MM:SS
         JP      Z,TM_SPAR
         CP      9
         JR      NZ,TM_PBAD
@@ -208,6 +214,14 @@ TM_PBAD:                                ; reject invalid command
   ; against its hardware date range and must reject unsupported SET itself.
 
 TM_SPAR:                            ; parse canonical SET record
+        LD      A,B
+        LD      (TM_SLEN),A
+        PUSH    HL
+        LD      E,B
+        LD      D,0
+        ADD     HL,DE
+        LD      (TM_SEND),HL            ; end of the command tail
+        POP     HL
         LD      DE,TM_SKWORD
         LD      B,5
 TM_SCMP:                                ; compare case-insensitive SET prefix
@@ -225,6 +239,16 @@ TM_SCUP:                                ; preserve punctuation during folding
         INC     HL
         INC     DE
         DJNZ    TM_SCMP
+        PUSH    HL                      ; MM/ starts a calendar date
+        INC     HL
+        INC     HL
+        LD      A,(HL)
+        POP     HL
+        CP      '/'
+        JP      Z,TM_SDATE
+        LD      A,(TM_SLEN)             ; the hex record has one length
+        CP      19
+        JP      NZ,TM_PBAD
         LD      DE,TM_REQUEST+4
         LD      B,5
 TM_SBYTE:                               ; decode one hexadecimal record byte
@@ -273,6 +297,219 @@ TM_SRANGE:                              ; reject out-of-range clock fields
         LD      (TM_MODE),A
         XOR     A
         RET
+  ; /SET MM/DD/YY[YY] HH:MM[:SS]: convert a calendar date and local time to
+  ; the canonical record, then share the hex form's BCD range checks. Two-digit
+  ; years 78-99 are 1978-1999 and 00-77 are 2000-2077; four-digit years run
+  ; 1978-2157, the range of the CP/M day count (day 65535 is 2157-06-05).
+TM_SDATE:                               ; parse a calendar date and time
+        CALL    TM_GET2                 ; month
+        JP      C,TM_PBAD
+        CALL    TM_BIN
+        LD      (TM_SMON),A
+        LD      C,'/'
+        CALL    TM_SEP
+        JP      NZ,TM_PBAD
+        CALL    TM_GET2                 ; day
+        JP      C,TM_PBAD
+        CALL    TM_BIN
+        LD      (TM_SDAY),A
+        LD      C,'/'
+        CALL    TM_SEP
+        JP      NZ,TM_PBAD
+        CALL    TM_GET2                 ; year, first two digits
+        JP      C,TM_PBAD
+        CALL    TM_BIN
+        LD      E,A
+        LD      D,0
+        LD      A,(HL)
+        CP      ' '
+        JR      Z,TM_SYY2
+        PUSH    DE                      ; four digits: century first
+        CALL    TM_GET2
+        POP     DE
+        JP      C,TM_PBAD
+        CALL    TM_BIN
+        PUSH    HL
+        LD      H,D                     ; HL = century * 100 + A
+        LD      L,E
+        ADD     HL,HL
+        ADD     HL,HL
+        ADD     HL,DE                   ; *5
+        ADD     HL,HL
+        ADD     HL,HL                   ; *20
+        LD      D,H
+        LD      E,L
+        ADD     HL,HL
+        ADD     HL,HL                   ; *80
+        ADD     HL,DE                   ; *100
+        LD      E,A
+        LD      D,0
+        ADD     HL,DE
+        EX      DE,HL
+        POP     HL
+        JR      TM_SYSET
+TM_SYY2:                                ; two-digit year window
+        LD      A,E
+        LD      DE,1900
+        CP      78
+        JR      NC,TM_SYADD
+        LD      DE,2000
+TM_SYADD:
+        ADD     A,E
+        LD      E,A
+        JR      NC,TM_SYSET
+        INC     D
+TM_SYSET:
+        LD      (TM_SYEAR),DE
+        LD      C,' '
+        CALL    TM_SEP
+        JP      NZ,TM_PBAD
+        CALL    TM_GET2                 ; hour (packed BCD)
+        JP      C,TM_PBAD
+        LD      (TM_REQUEST+6),A
+        LD      C,':'
+        CALL    TM_SEP
+        JP      NZ,TM_PBAD
+        CALL    TM_GET2                 ; minute
+        JP      C,TM_PBAD
+        LD      (TM_REQUEST+7),A
+        XOR     A
+        LD      (TM_REQUEST+8),A        ; seconds default to zero
+        CALL    TM_ATEND
+        JR      Z,TM_SDCNT
+        LD      C,':'
+        CALL    TM_SEP
+        JP      NZ,TM_PBAD
+        CALL    TM_GET2                 ; second
+        JP      C,TM_PBAD
+        LD      (TM_REQUEST+8),A
+        CALL    TM_ATEND
+        JP      NZ,TM_PBAD
+
+  ; Validate the date and convert it to a day count: day 1 is 1978-01-01.
+TM_SDCNT:
+        LD      HL,(TM_SYEAR)
+        LD      DE,1978
+        OR      A
+        SBC     HL,DE
+        JP      C,TM_PBAD
+        LD      HL,(TM_SYEAR)
+        LD      DE,2158
+        OR      A
+        SBC     HL,DE
+        JP      NC,TM_PBAD
+        LD      A,(TM_SMON)
+        DEC     A
+        CP      12
+        JP      NC,TM_PBAD
+        LD      HL,1
+        LD      (TM_SCNT),HL
+        LD      DE,1978
+TM_SDYL:                                ; add each whole year before this one
+        LD      HL,(TM_SYEAR)
+        OR      A
+        SBC     HL,DE
+        JR      Z,TM_SDYD
+        CALL    TM_YDAYS
+        LD      BC,(TM_SCNT)
+        ADD     HL,BC
+        JP      C,TM_PBAD
+        LD      (TM_SCNT),HL
+        INC     DE
+        JR      TM_SDYL
+TM_SDYD:
+        LD      C,1
+TM_SDML:                                ; add each whole month before this one
+        LD      A,(TM_SMON)
+        CP      C
+        JR      Z,TM_SDMD
+        PUSH    BC
+        CALL    TM_MDAYS
+        POP     BC
+        LD      HL,(TM_SCNT)
+        ADD     A,L
+        LD      L,A
+        JR      NC,TM_SDMN
+        INC     H
+        JP      Z,TM_PBAD
+TM_SDMN:
+        LD      (TM_SCNT),HL
+        INC     C
+        JR      TM_SDML
+TM_SDMD:                                ; day of month: 1 .. month length
+        CALL    TM_MDAYS
+        LD      B,A
+        LD      A,(TM_SDAY)
+        OR      A
+        JP      Z,TM_PBAD
+        DEC     A
+        CP      B
+        JP      NC,TM_PBAD
+        LD      E,A
+        LD      D,0
+        LD      HL,(TM_SCNT)
+        ADD     HL,DE
+        JP      C,TM_PBAD
+        LD      (TM_REQUEST+4),HL
+        JP      TM_SVALID
+
+  ; Two decimal digits at HL: A = packed BCD, carry if not digits; HL advances.
+TM_GET2:
+        CALL    TM_GETD
+        RET     C
+        RLCA
+        RLCA
+        RLCA
+        RLCA
+        LD      B,A
+        CALL    TM_GETD
+        RET     C
+        OR      B
+        RET
+TM_GETD:
+        LD      A,(HL)
+        INC     HL
+        SUB     '0'
+        CP      10
+        CCF
+        RET
+
+  ; Packed BCD A to binary A.
+TM_BIN: LD      C,A
+        AND     0F0H
+        RRCA                            ; tens * 8
+        LD      B,A
+        RRCA
+        RRCA                            ; tens * 2
+        ADD     A,B
+        LD      B,A
+        LD      A,C
+        AND     0FH
+        ADD     A,B
+        RET
+
+  ; Consume separator C at HL: Z if present (and not past the end).
+TM_SEP: CALL    TM_ATEND
+        JR      Z,TM_SEPNO
+        LD      A,(HL)
+        INC     HL
+        CP      C
+        RET
+TM_SEPNO:
+        OR      1
+        RET
+
+  ; Z when HL has reached the end of the command tail.
+TM_ATEND:
+        PUSH    DE
+        PUSH    HL
+        LD      DE,(TM_SEND)
+        OR      A
+        SBC     HL,DE
+        POP     HL
+        POP     DE
+        RET
+
 TM_HEX:                                 ; consume one hexadecimal digit
         LD      A,(HL)
         INC     HL
@@ -554,6 +791,9 @@ TM_NOCLOCK:                             ; report unavailable clock
 
 TM_CLOCKERR:                            ; report native TIME failure
   ; Keep ABI failures distinct; a read-only clock is not a hardware failure.
+        CP      5
+        LD      DE,TM_UNSET
+        JR      Z,TM_ERROR
         CP      8
         LD      DE,TM_SETNO
         JR      Z,TM_ERROR
@@ -603,6 +843,12 @@ TM_ENTRY:      DW      0                ; resolved service entry
 TM_MODE:       DB      0                ; selected TIME operation
 TM_MON:        DB      0                ; current month
 TM_DSTAT:      DB      0                ; date conversion state
+TM_SLEN:       DB      0                ; SET command-tail length
+TM_SEND:       DW      0                ; end of the SET command tail
+TM_SYEAR:      DW      0                ; SET year
+TM_SMON:       DB      0                ; SET month
+TM_SDAY:       DB      0                ; SET day of month
+TM_SCNT:       DW      0                ; SET day count being built
 TM_SKWORD:     DB      '/SET '         ; canonical-record SET prefix
 TM_PKWORD:     DB      '/PROVIDER'      ; packed provider word
 
@@ -622,8 +868,10 @@ TM_NOMSG:      DB      13,10,'No TIME provider is loaded; service status $' ; no
 TM_SETNO:      DB      13,10,'Clock provider does not support SET.',13,10,'$'
 TM_BADREC:     DB      13,10,'Invalid clock record.',13,10,'$'
 TM_CERR:       DB      13,10,'Clock provider error.',13,10,'$' ; clock-error message
+TM_UNSET:      DB      13,10,'Clock unavailable. If it has not been set, use TIME /SET.',13,10,'$'
 TM_SETOK:      DB      13,10,'Clock set.',13,10,'$'
 TM_UMSG:       DB      13,10,'Usage: TIME [/PROVIDER]',13,10
+               DB      '       TIME /SET MM/DD/YY[YY] HH:MM[:SS]',13,10
                DB      '       TIME /SET LL HH HR MN SC (five hex bytes)',13,10
                DB      '       Day low/high, BCD hour/minute/second.',13,10,'$' ; usage message
 TM_EPOCH:      DB      '1977-12-31$'    ; CP/M epoch constant
