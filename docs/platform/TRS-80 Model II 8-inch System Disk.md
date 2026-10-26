@@ -9,6 +9,35 @@ package lives, the default filesystem, and the interchange format for Pickles &
 Trout CP/M disks. Platform code lives in `src/platform/trs80m2`; build with
 `BETTERCPM_PLATFORM=trs80m2`.
 
+## Compatibility rules
+
+Every Model II change is checked against these rules, in priority order:
+
+1. **General CP/M 2.2 programs come first.** The CP/M archives hold far more
+   software than was ever sold for the Model II, so standard CP/M 2.2
+   behaviour outranks everything else. The BIOS jump table, page zero (0000H
+   warm-boot jump, 0005H BDOS entry, IOBYTE, default FCB, command buffer), BDOS
+   behaviour and the logical devices CON:, RDR:, PUN: and LST: through the
+   IOBYTE never change.
+2. **Pickles & Trout programs come second.** P&T is the standard CP/M for the
+   Model II, so software written or installed for it (P&T disks, console codes)
+   should also run, as long as that never costs general compatibility.
+3. **The program area never shrinks.** New resident code goes above the system
+   (for example F400H-F7FFH), not into the TPA.
+4. **New features are extras that programs can ignore.** They are offered as
+   separate services, and anything that changes machine state is off until a
+   BetterCP/M feature turns it on: the clock's interrupts start on the first
+   SET, and a serial driver will leave the SIO and CTC untouched until the
+   console is redirected or a BetterCP/M program opens the port. Programs that
+   drive the hardware themselves then find it as they expect.
+5. **A program may break a BetterCP/M extra, never the reverse.** A program that
+   sets its own interrupt mode may stop the clock while it runs; that is
+   acceptable. BetterCP/M must not make a working CP/M program fail.
+6. **Screen personalities are loadable, not forced.** ADM-3A, VT52 and ANSI/VT100
+   (the codes most archive software can be installed for) and a P&T-compatible
+   console all draw through one Model II screen driver; none is imposed on a
+   program that does not expect it.
+
 ## Hardware used
 
 | Function | Ports / address | Notes |
