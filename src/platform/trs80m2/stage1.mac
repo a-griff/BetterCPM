@@ -17,6 +17,8 @@
 
 SYSIMAGE        EQU     LY_SYS
 SYSBOOT         EQU     LY_BIOS+0       ; BIOS BOOT initializes the console
+  ; Platform extension: one sector, package slot 1 (generated location)
+  ; @m2ext-sector@
 SYSSECTORS      EQU     LY_SECTS
 M2_READ_ONLY    EQU     1
 
@@ -57,6 +59,12 @@ SYSLOAD:                                ; load next resident-system sector
         POP     BC
         JR      NZ,SYSERROR
         DJNZ    SYSLOAD
+        LD      HL,MX_BASE              ; platform extension to F600H
+        LD      A,EXTCYL
+        LD      B,EXTSIDE
+        LD      C,EXTSEC
+        CALL    M2_READ
+        JR      NZ,SYSERROR
   ; A is zero here. A true cold start has no interrupted lookup to recover;
   ; leave warm reconstruction's recovery state untouched.
         LD      (0048H),A

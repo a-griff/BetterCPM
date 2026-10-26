@@ -106,6 +106,48 @@ run clock "$(disk clock)" - 5400 $'CLS\rRSX LOAD M2CLK\rTIME\rTIME /PROVIDER\rTI
     $'TIME\r' 1800
 expect clock "Clock unavailable" "Provider: M2CLK" "GET/SET" "Clock set." "2026-10-25 12:01:"
 
+# serial NAME KEYS [-b CHATB_ARGS... --] CHATA_ARGS... : boot with serial ports A
+# and B listening on TCP, type KEYS, then run m2chat.pl on port A (and, with -b,
+# on port B in the background). The port A transcript, without CRs, becomes
+# NAME's screen for expect.
+CHAT="$ROOT/src/platform/trs80m2/m2chat.pl"
+serial() {
+    local name=$1 keys=$2 dir="$WORK/$1"; shift 2
+    local pa=$((7200 + RANDOM % 1000)); local pb=$((pa + 1))
+    local bargs=()
+    if [ "$1" = "-b" ]; then
+        shift; while [ "$1" != "--" ]; do bargs+=("$1"); shift; done; shift
+    fi
+    mkdir -p "$dir"
+    local image; image=$(disk "$name")
+    ( cd "$dir" && setsid timeout 1200 $XVFB "$EMU" -m2 -batch -turbo -itime 0 \
+        -rA "@$pa" -rB "@$pb" -d0 "$image" -id 9000 -i "$keys" -id 300000 -ix \
+        >emu.log 2>&1 & )
+    [ ${#bargs[@]} -gt 0 ] && perl "$CHAT" -port "$pb" -connect 120 "${bargs[@]}" >"$dir/portb.txt" 2>&1 &
+    perl "$CHAT" -port "$pa" -connect 120 -timeout 180 "$@" >"$dir/porta.txt" 2>"$dir/chat.err"
+    tr -d '\r' <"$dir/porta.txt" >"$dir/screen.txt"; cat "$dir/chat.err" >>"$dir/screen.txt"
+    pkill -f -- "-rA @$pa " 2>/dev/null
+    while pgrep -f -- "-rA @$pa " >/dev/null; do sleep 1; done
+}
+
+# Console on serial port A (STAT CON:=TTY:), and back to the CRT.
+serial sercon $'CLS\rSTAT CON:=TTY:\r' -expect '\nA0>' -send 'DIR\r' -expect '\nA0>' \
+    -send 'STAT CON:=CRT:\r' -drain 2
+expect sercon "CON: is TTY:" "M2CLK    RSX" "STAT CON:=CRT:"
+
+# Punch to port A, then reader from port B, driven from the serial console.
+printf 'Line one from Linux\r\nLine two\r\n\032' >"$WORK/in.txt"
+serial serpip $'CLS\rSTAT CON:=TTY: RDR:=UR1:\r' -b -drain 25 -pace 30 -sendfile "$WORK/in.txt" -drain 5 -- \
+    -expect '\nA0>' -send 'PIP PUN:=STARTUP.SUB\r' -expect '\nA0>' -send 'PIP FROMPC.TXT=RDR:\r' \
+    -expect '\nA0>' -send 'TYPE FROMPC.TXT\r' -expect '\nA0>' -send 'STAT CON:=CRT:\r' -drain 2
+expect serpip ":VER /BANNER" "Line one from Linux" "Line two"
+
+# The clock runs alongside serial interrupts: set it from the serial console.
+serial serclk $'CLS\rSTAT CON:=TTY:\r' -expect '\nA0>' -send 'RSX LOAD M2CLK\r' -expect '\nA0>' \
+    -send 'TIME /SET 10/25/26 12:00\r' -expect '\nA0>' -send 'TIME\r' -expect '\nA0>' \
+    -send 'STAT CON:=CRT:\r' -drain 2
+expect serclk "Clock set." "2026-10-25 12:00:0"
+
 if [ -n "$PT" ]; then
     cp "$PT" "$WORK/pt.imd"
     run pickles "$(disk pickles)" "$WORK/pt.imd" 6000 \

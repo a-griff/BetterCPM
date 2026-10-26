@@ -27,7 +27,8 @@ BIOS_LISTING = ROOT / "build/bios/bios.lst"
 BUILD = ROOT / "build/rsx"
 LINK_BASE = 0x8000
 ALTERNATE_BASE = 0x8101
-BIOS_SYMBOLS = ("MC_CLK", "MC_TICK", "MC_RUN", "MC_VEC")
+BIOS_SYMBOLS = ("MC_CLK", "MC_TICK", "MC_RUN")
+HARDWARE = ROOT / "src/platform/trs80m2/hardware.inc"
 
 
 def bios_symbols() -> str:
@@ -51,7 +52,8 @@ def main() -> None:
                         default=Path("/Users/nathanael/bin/z80asm"))
     args = parser.parse_args()
     BUILD.mkdir(parents=True, exist_ok=True)
-    source = bios_symbols() + SOURCE.read_text(encoding="ascii")
+    source = bios_symbols() + SOURCE.read_text(encoding="ascii").replace(
+        "        INCLUDE hardware.inc\n", HARDWARE.read_text(encoding="ascii"))
     text = source.replace("        CSEG\n        .PHASE  ",
                           "        ASEG\n        ORG     ").replace(
                               "        .DEPHASE\n", "")

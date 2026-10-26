@@ -4,7 +4,8 @@
 ; * The Model II has no battery clock. Its 30 Hz real-time interrupt is an NMI   *
 ; * at 0066H, inside the CP/M default FCB, so CP/M cannot use it. Instead, CTC   *
 ; * channel 3 runs as a timer: 4 MHz / 256 / 125 = 125 interrupts per second,   *
-; * taken in interrupt mode 2 through MC_VEC. The handler keeps the TIME ABI 1.0 *
+; * taken in interrupt mode 2 through the platform extension's vector table    *
+; * (m2ext.mac, MX_VECT). The handler keeps the TIME ABI 1.0                    *
 ; * record (day count, BCD hour, minute, second) here in the BIOS, at a fixed    *
 ; * address that never moves. M2CLK.RSX publishes it as the TIME service and    *
 ; * starts the timer on the first SET; until then interrupts stay disabled.     *
@@ -57,10 +58,3 @@ MC_TICK:DB      MC_HZ                   ; ticks left in this second
 MC_CLK: DB      0,0,0,0,0               ; day low, day high, hour, minute, second
 MC_RUN: DB      0                       ; nonzero once SET has started the clock
 
-  ; Mode-2 vector: the CTC supplies (base AND 0F8H) + 6 for channel 3, so the
-  ; word must sit at an address whose low three bits are 110.
-        DS      (14 - ($ AND 7)) AND 7
-MC_VEC: DW      MC_ISR
-        IF      (MC_VEC AND 7) NE 6
-        DB      MC_VEC_MISALIGNED       ; undefined: forces an assembly error
-        ENDIF

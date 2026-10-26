@@ -78,6 +78,48 @@ DMA_ENABLE      EQU     087H
 DMA_RESET       EQU     0C3H
 
 ; -------------------------------------------------------------------------------
+; Z80 SIO (two serial ports) and CTC (baud rates, clock)
+; -------------------------------------------------------------------------------
+
+SIOADATA        EQU     0F4H            ; port A data
+SIOBDATA        EQU     0F5H            ; port B data
+SIOACTL         EQU     0F6H            ; port A control/status
+SIOBCTL         EQU     0F7H            ; port B control/status
+CTCCH0          EQU     0F0H            ; port A receive clock; CTC vector register
+CTCCH1          EQU     0F1H            ; port A transmit clock
+CTCCH2          EQU     0F2H            ; port B receive/transmit clock
+CTCCH3          EQU     0F3H            ; software clock timer
+PIOACTL         EQU     0E2H            ; PIO port A control
+PIOBCTL         EQU     0E3H            ; PIO port B control
+
+; -------------------------------------------------------------------------------
+; Platform extension (src/platform/trs80m2/m2ext.mac)
+;
+; 512 bytes at F600H-F7FFH, loaded by stage one at cold boot from system
+; package slot 1 (package bytes 10752-11263). It holds the interrupt-mode-2
+; vector table shared by the clock and the serial ports, the serial driver and
+; the routing of the TTY:/UC1:/RDR:/PUN:/LST: devices. The BIOS sector cache
+; therefore holds at most 512-byte sectors (F400H-F5FFH).
+; -------------------------------------------------------------------------------
+
+MX_BASE         EQU     0F600H
+MX_VECT         EQU     MX_BASE         ; 16-byte vector table; I = HIGH MX_VECT
+MX_CTCV         EQU     LOW MX_VECT     ; CTC vector base (channel 3 uses +6)
+MX_SIOV         EQU     LOW MX_VECT+8   ; SIO vector (status does not affect it)
+MX_CONST        EQU     MX_BASE+010H    ; console status, CON: not CRT:
+MX_CONIN        EQU     MX_BASE+013H    ; console input, CON: not CRT:
+MX_CONOT        EQU     MX_BASE+016H    ; console output (C), CON: not CRT:
+MX_LIST         EQU     MX_BASE+019H    ; list output (C), any LST:
+MX_LSTST        EQU     MX_BASE+01CH    ; list status, any LST:
+MX_PUNCH        EQU     MX_BASE+01FH    ; punch output (C)
+MX_READR        EQU     MX_BASE+022H    ; reader input
+MX_IMON         EQU     MX_BASE+025H    ; select mode 2, vectors, enable interrupts
+MX_SIGN         EQU     MX_BASE+00AH    ; 'M2X',version (in an unused vector slot)
+MX_CFG          EQU     MX_BASE+028H    ; per-port settings, 12 bytes each (A, then B):
+MX_CFGLEN       EQU     12              ; +0 CTC divisor, +1 SIO setup sequence
+                                        ; (register, value pairs after a channel reset)
+
+; -------------------------------------------------------------------------------
 ; Controller port names used by the shared BIOS control overlay
 ; -------------------------------------------------------------------------------
 

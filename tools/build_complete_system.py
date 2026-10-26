@@ -28,9 +28,9 @@ if build_platform.MODEL2:
     # table is layout-dependent) itself; the Model II image builder does not.
     at = COMPONENTS.index("rsxresolver") + 1
     COMPONENTS = COMPONENTS[:at] + ("rsxselect",) + COMPONENTS[at:]
-    # The Model II clock provider links to the clock in the Model II BIOS.
+    # The platform extension and the clock provider link to the Model II BIOS.
     at = COMPONENTS.index("system") + 1
-    COMPONENTS = COMPONENTS[:at] + ("m2clk_rsx",) + COMPONENTS[at:]
+    COMPONENTS = COMPONENTS[:at] + ("trs80m2_ext", "m2clk_rsx") + COMPONENTS[at:]
 if __name__ == "__main__":
     if CONTEXT:
         raise SystemExit('Checked-profile full-system integration is pending; build individual layout components for now.')

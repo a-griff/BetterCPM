@@ -43,12 +43,17 @@ BLOCK_COUNT = 292                    # DSM 291
 STAGE1_ADDRESS = 0x1000              # ROM 'BOOT' signature address
 DIAG_OFFSET = 0x600                  # 1400H within the boot track
 DIAG_STUB = b"DIAG\xc3\x04\x10"      # 'DIAG' then JP 1004H; written at format time
+EXT_OFFSET = 10752                   # platform extension: package slot 1
 
 
 def assemble_stage1(assembler: Path) -> bytes:
     text = (SOURCE / "stage1.mac").read_text(encoding="ascii")
     text = text.replace("        CSEG\n        .PHASE  ", "        ASEG\n        ORG     ")
     text = text.replace("        .DEPHASE\n", "")
+    cyl, side, sector = build_platform.system_sector(EXT_OFFSET // SECTOR_BYTES)
+    text = text.replace("  ; @m2ext-sector@\n",
+                        f"EXTCYL          EQU     {cyl}\nEXTSIDE         EQU     {side}\n"
+                        f"EXTSEC          EQU     {sector}\n")
     output = BUILD / "stage1.bin"
     with tempfile.TemporaryDirectory(prefix="bettercpm-m2stage1-") as temporary:
         staged = Path(temporary)

@@ -2,8 +2,9 @@
 ; *                    BetterCP/M TRS-80 Model II TIME RSX                       *
 ; *                                                                              *
 ; * TIME ABI 1.0 provider for the Model II software clock kept by the BIOS      *
-; * (m2clock.inc). The BIOS owns the clock record, tick handler and mode-2      *
-; * vector at fixed addresses, so this module holds no live state and can be    *
+; * (m2clock.inc). The BIOS owns the clock record and tick handler, and the     *
+; * platform extension (m2ext.mac) the mode-2 vector, all at fixed addresses,  *
+; * so this module holds no live state and can be                               *
 ; * moved, unloaded and reloaded freely; the clock keeps running regardless.   *
 ; *                                                                              *
 ; * The clock starts on the first SET: the provider programs CTC channel 3      *
@@ -13,20 +14,16 @@
 ; * vector (a program took over the interrupt system), rather than return a    *
 ; * time that has stopped.                                                       *
 ; *                                                                              *
-; * The Model II build prepends MC_CLK, MC_TICK, MC_RUN, MC_VEC and MC_HZ from   *
-; * the BIOS listing.                                                            *
+; * The Model II build prepends MC_CLK, MC_TICK, MC_RUN and MC_HZ from the BIOS  *
+; * listing and inlines hardware.inc.                                           *
 ; ********************************************************************************
 
 
 RSXBASE         EQU     08000H
 BDOS            EQU     00005H
-PIOACTL         EQU     0E2H            ; PIO port A control
-PIOBCTL         EQU     0E3H            ; PIO port B control
-CTC0            EQU     0F0H            ; CTC channel 0 (vector register)
-CTC3            EQU     0F3H            ; CTC channel 3
+        INCLUDE hardware.inc
 CTC_TIMER       EQU     0A7H            ; interrupt, timer, /256, auto start,
                                         ; time constant follows, reset
-PIO_NOINT       EQU     003H            ; PIO interrupt control: disabled
 
         CSEG
         .PHASE  RSXBASE
@@ -90,7 +87,7 @@ MK_GET: LD      A,(MC_RUN)
         LD      A,I
         JP      PO,MK_TUNAV             ; interrupts off: the clock is not running
 MK_GETON:
-        CP      HIGH MC_VEC
+        CP      HIGH MX_VECT
         JR      NZ,MK_TUNAV             ; another vector table is in use
         DI
         LD      HL,MC_CLK
@@ -135,21 +132,13 @@ MK_SET: LD      A,(DE)                  ; day 0 is before the CP/M epoch
         LDIR
         LD      A,MC_HZ                 ; the new second starts now
         LD      (MC_TICK),A
-        LD      A,PIO_NOINT             ; only the CTC may interrupt
-        OUT     (PIOACTL),A
-        OUT     (PIOBCTL),A
-        LD      A,HIGH MC_VEC
-        LD      I,A
-        LD      A,MC_VEC AND 00F8H      ; vector base; channel 3 adds 6
-        OUT     (CTC0),A
         LD      A,CTC_TIMER
-        OUT     (CTC3),A
+        OUT     (CTCCH3),A
         LD      A,MC_HZ
-        OUT     (CTC3),A                ; time constant
-        IM      2
+        OUT     (CTCCH3),A              ; time constant
         LD      A,1
         LD      (MC_RUN),A
-        EI
+        CALL    MX_IMON                 ; mode 2, shared vectors, enable
         POP     HL                      ; HL = request +4
         POP     DE
         XOR     A

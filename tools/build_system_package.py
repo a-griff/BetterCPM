@@ -29,6 +29,10 @@ COMPONENTS = (
     ("RSXRESOL.BIN", "build/system/rsxresolver.bin", 12800, 1021),
     ("CCP.RLM", "build/ccp/ccp.rlm", 13824, 52 * 128),
 )
+if build_platform.MODEL2:
+    # Model II platform extension (F600H) in RSX-selector slot 1, which no
+    # platform loads; stage one loads it at cold boot.
+    COMPONENTS += (("M2EXT.BIN", f"{BOOT_BUILD}/m2ext.bin", 10752, 512),)
 
 
 def compose() -> tuple[bytes, dict[str, bytes]]:

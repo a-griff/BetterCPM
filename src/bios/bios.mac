@@ -134,8 +134,14 @@ BIOWBOOT:                               ; warm boot entry
 BIOCONST:
         CALL IO_CON
         JR Z,IO_STAT
+        IFDEF   PL_SER
+  ; Platforms with serial ports route every device but the CRT through the
+  ; platform layer, which owns the IOBYTE mapping of TTY:, BAT:, UC1: etc.
+        JP      MX_CONST
+        ELSE
         XOR A
         RET
+        ENDIF
 IO_STAT:
         LD A,1
         CALL MC_CALL
@@ -149,7 +155,11 @@ BIOCONIN:
         CALL    BC_DROP
         ENDIF
         CALL IO_CON
+        IFDEF   PL_SER
+        JP      NZ,MX_CONIN
+        ELSE
         JP NZ,BIOREADR
+        ENDIF
 IO_INPUT:
         LD A,2
         CALL MC_CALL
@@ -158,14 +168,26 @@ IO_INPUT:
 BIOCONOT:
         CALL IO_CON
         JP Z,MH_OUT
+        IFDEF   PL_SER
+        JP      MX_CONOT
+        ELSE
         CP 1
         RET NZ
         JP BIOLIST
+        ENDIF
 IO_CON:
         LD A,(0003H)
         AND 3
         DEC A
         RET
+        IFDEF   PL_SER
+BIOLIST:
+        JP      MX_LIST
+BIOPUNCH:
+        JP      MX_PUNCH
+BIOREADR:
+        JP      MX_READR
+        ELSE
 BIOLIST:
         CALL BIOLSTST
         OR A
@@ -176,6 +198,7 @@ BIOPUNCH:
 BIOREADR:
         LD A,01AH
         RET
+        ENDIF
 ; ================================================================================
 ; =                     Disk Selection and Transfer Services                     =
 ; =                                                                              =
@@ -332,12 +355,16 @@ BIO_SLOT:                               ; select quarter-sector slot
 ; -------------------------------------------------------------------------------
 
 BIOLSTST:
+        IFDEF   PL_SER
+        JP      MX_LSTST
+        ELSE
         LD A,(0003H)
         AND 0C0H
         CP 040H
         JP Z,IO_READY
         XOR A
         RET
+        ENDIF
 
   ; BC is the zero-based logical sector; DE is XLT or zero.  Return HL.
 
@@ -413,7 +440,13 @@ BC_SRC: DB      0                       ; 1: cached copy is from a write
         ENDIF
 
 IO_CAPS:
+        IFDEF   PL_SER
+  ; One nibble per logical device, bit n = IOBYTE value n available:
+  ; CON: TTY CRT BAT UC1, RDR: TTY PTR UR1, PUN: TTY PTP UP1, LST: TTY CRT UL1.
+        LD HL,0B77FH
+        ELSE
         LD HL,02002H                    ; CRT console and CRT list only
+        ENDIF
         RET
 
 

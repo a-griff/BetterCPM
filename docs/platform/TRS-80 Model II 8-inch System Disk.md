@@ -121,7 +121,9 @@ the Model II the first eight records are boot-track records and the remaining
 | 8–59 | Resident system | cylinder 1 sectors 1–13 |
 | 60–67 | Command reloader + RSX selector | cylinder 1 sectors 14–15 |
 | 68–75 | Control overlay | cylinder 1 sector 16, cylinder 2 sector 1 |
-| 76–107 | RSX carriers | cylinder 2 sectors 2–9 |
+| 76–83 | RSX carrier slot 0 (manager) | cylinder 2 sectors 2–3 |
+| 84–87 | Model II platform extension (slot 1) | cylinder 2 sector 4 |
+| 88–107 | RSX carrier slots 1 (rest), 2 and 3 | cylinder 2 sectors 5–9 |
 | 108–159 | Command processor | cylinder 2 sector 10 – cylinder 3 sector 6 |
 
 Package record *r* ≥ 8 is at linear record 64 + (*r* − 8): track 1 upward, four
@@ -136,7 +138,8 @@ The `DIAG` stub (FM sector 13: `DIAG`, then `JP 1004H`) is written when the
 boot track is formatted. It does not depend on the system build.
 
 Stage one loads the 13 resident sectors from cylinder 1 into the system area,
-sets IOBYTE to 95H and enters BIOS BOOT. The BIOS reloads the command
+loads the platform extension (one sector, package slot 1) to F600H, sets IOBYTE
+to 95H and enters BIOS BOOT. The BIOS reloads the command
 environment from the sector tables generated from this placement.
 
 ## Pickles & Trout interchange format
@@ -203,8 +206,9 @@ hardware.
 
 ## Sector cache
 
-The Model II BIOS reads each physical sector into a private 1K buffer at F400H
-(`PL_SBUF`, free RAM below the video window) and remembers its drive, side,
+The Model II BIOS reads each physical sector into a private 512-byte buffer at
+F400H (`PL_SBUF`, free RAM below the video window; no Model II format has larger
+sectors, and F600H-F7FFH holds the platform extension) and remembers its drive, side,
 cylinder and sector. The other records of that sector are then served from
 the buffer without touching the disk. On a miss the fresh sector is also
 copied to the shared `LY_BUF`, where DUP and CONFIG expect it. Writes go
@@ -247,16 +251,18 @@ no serial baud rate is affected:
 | --- | --- |
 | Timer | CTC channel 3 (port F3H), control A7H: interrupt, timer, prescaler 256, automatic start |
 | Rate | 4 MHz / 256 / 125 = 125 interrupts per second exactly |
-| Interrupts | Mode 2; I = high byte of `MC_VEC`, CTC vector = `MC_VEC` AND F8H (channel 3 adds 6) |
+| Interrupts | Mode 2 through the platform extension's table: I = F6H, CTC vector 00H, so channel 3 uses F606H |
 | Record | TIME ABI 1.0: day count (day 1 = 1978-01-01), BCD hour, minute, second |
 | Stack use | 10 bytes of the interrupted program's stack |
 
-The tick handler, clock record and vector (`src/platform/trs80m2/m2clock.inc`,
-about 70 bytes) live in the BIOS, at fixed addresses that never move.
+The tick handler and clock record (`src/platform/trs80m2/m2clock.inc`, about
+60 bytes) live in the BIOS and the vector in the platform extension, at fixed
+addresses that never move.
 `M2CLK.RSX` (`m2clk.mac`) is a stateless TIME provider that links to them at
 build time, so it can be loaded, moved or unloaded without affecting the clock.
-Interrupts stay disabled until the first SET, which loads the record, disables
-PIO interrupts, programs the CTC, selects mode 2 and enables interrupts. GET
+Interrupts stay disabled until the first SET, which loads the record, programs
+the CTC and calls the extension's `MX_IMON` (mode 2, vectors, PIO interrupts
+off, interrupts on), which the serial driver also uses. GET
 reports UNAVAILABLE (status 5) before that, and whenever interrupts are found
 disabled or the I register no longer points at the clock vector, rather than
 return a stopped time.
@@ -279,3 +285,75 @@ The Model 4 boot-disk builder rebuilds the RSX overlay selector
 its own steps. The Model II build now does this as the `rsxselect` component.
 Before that, Model II disks carried a selector with Model 4 sector addresses
 and every `RSX LOAD` failed.
+
+## Platform extension
+
+The BIOS region is full, so Model II drivers live in a 512-byte platform
+extension (`src/platform/trs80m2/m2ext.mac`) at F600H-F7FFH. It travels in
+slot 1 of the system package, a reserved RSX-carrier slot that no platform
+loads, so SYSGEN, DUP and CONFIG carry it like the rest of the system. Stage one
+loads it at cold boot; warm boots leave it in place. Its fixed entry points and
+settings are defined in `hardware.inc`:
+
+| Address | Content |
+| --- | --- |
+| F600H-F60FH | Mode-2 vector table: F606H CTC channel 3 (clock), F608H SIO; the unused slots hold state and the `M2X` signature |
+| F610H-F627H | Jump table used by the BIOS: CONST, CONIN, CONOUT, LIST, LISTST, PUNCH, READER for every device but the CRT, and `MX_IMON` |
+| F628H-F63FH | Serial settings, 12 bytes per port (`MX_CFG`) |
+| F640H-F7BFH | Driver code |
+| F7C0H-F7FFH | Port A receive ring (64 bytes) |
+
+The extension is built by `tools/build_trs80m2_ext.py`, which links it to the
+BIOS clock handler and console output. It is full (447 of 448 bytes); further
+drivers need another home.
+
+## Serial ports
+
+The Model II's Z80 SIO has two ports, A and B, clocked by CTC channels 0-1 (A)
+and 2 (B) from 2 MHz. The extension routes the CP/M logical devices to them:
+
+| Device | IOBYTE value 0 | 1 | 2 | 3 |
+| --- | --- | --- | --- | --- |
+| CON: | TTY: port A | CRT: screen and keyboard | BAT: reader in, list out | UC1: port B |
+| RDR: | TTY: port A | PTR: port A | UR1: port B | UR2: none (end of file) |
+| PUN: | TTY: port A | PTP: port A | UP1: port B | UP2: none |
+| LST: | TTY: port A | CRT: screen | LPT: none yet | UL1: port B |
+
+The BIOS character-capability query (BIOS+63) reports exactly these routes, so
+STAT accepts them, for example `STAT CON:=TTY:` for a Linux terminal on port A,
+`STAT RDR:=UR1:` for a reader on port B, or `PIP PUN:=FILE.TXT`.
+
+Compatibility rule 4 applies: the SIO and CTC are not touched until a port is
+first used through one of these devices. A port is then set up from its
+`MX_CFG` entry (default 9600 baud, 8 data bits, no parity, 1 stop bit, DTR and
+RTS on). Port A receives by interrupt into the 64-byte ring and lowers RTS when
+48 bytes wait, raising it again when the ring empties; it selects interrupt
+mode 2 through `MX_IMON`. Port B is polled. Both transmit by polling. 9600 baud
+is the fastest standard rate the 2 MHz CTC clock divides exactly (divisor 13,
+0.2% fast); 19200 would be about 8% off.
+
+`src/platform/trs80m2/m2chat.pl` talks to a serial port that trs80gp exposes
+over TCP (`trs80gp -rA @PORT`): it runs `-expect`/`-send` steps and prints what
+it receives. The test script uses it for the serial tests.
+
+## Community compatibility targets
+
+BetterCP/M for the Model II is for the whole Model II community, not one
+machine, so these are planned:
+
+- **Hard disk:** one driver for the Tandy hard disk controller's interface
+  (ports C0H-CFH: interface and ID registers, its own CTC, and a Western
+  Digital-style task file with 512-byte sectors). It serves original Tandy drives,
+  FreHD with its Model II interface card, and trs80gp's emulation. The drive
+  type comes from the controller's ID register; a geometry table covers every
+  Tandy drive size, and drives over 8MB are split into several CP/M drives.
+- **Hard disk layouts as data:** partition layouts go in a catalogue, like the
+  floppy formats in DISK.FDB, so a Pickles & Trout or other Model II CP/M hard
+  disk layout can be added from a sample image without changing the driver.
+- **Gotek and similar floppy emulators:** the image builder will also write
+  HFE images, which can mix FM and MFM tracks as the boot track requires.
+- **More Model II CP/M floppy formats:** Lifeboat, FMG and others, added to the
+  catalogue when sample disks are available.
+- **Allocation-table fix:** a per-drive allocation table, or a cache, so that
+  changing drives no longer rescans the directory. It speeds up floppy copies
+  and is required before a hard disk is practical.

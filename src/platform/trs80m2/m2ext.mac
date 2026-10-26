@@ -1,0 +1,342 @@
+; ********************************************************************************
+; *                  TRS-80 Model II Platform Extension                          *
+; *                                                                              *
+; * 512 bytes at F600H-F7FFH, loaded by stage one at cold boot from system      *
+; * package slot 1, so SYSGEN and DUP carry it with the rest of the system.     *
+; * Fixed entry points are defined in hardware.inc.                             *
+; *                                                                              *
+; *  - the interrupt-mode-2 vector table shared by the software clock (CTC     *
+; *    channel 3, handler in the BIOS) and serial port A (SIO);                 *
+; *  - the serial driver: port A receives by interrupt into a 64-byte ring     *
+; *    and lowers RTS when the ring is nearly full; port B is polled; both     *
+; *    transmit by polling;                                                     *
+; *  - the routing of the CP/M logical devices other than the CRT:             *
+; *                                                                              *
+; *      CON:  TTY: = port A   BAT: = RDR: in, LST: out   UC1: = port B        *
+; *      RDR:  TTY:, PTR: = port A   UR1: = port B   UR2: = none (^Z)           *
+; *      PUN:  TTY:, PTP: = port A   UP1: = port B   UP2: = none (discarded)    *
+; *      LST:  TTY: = port A   CRT: = screen   LPT: = none   UL1: = port B      *
+; *                                                                              *
+; * Nothing touches the SIO or CTC until a port is first used through these    *
+; * devices; programs that drive the serial hardware themselves find it as     *
+; * they expect. A port is then set up from its MX_CFG entry (default 9600     *
+; * baud, 8 data bits, no parity, 1 stop bit, RTS and DTR on) and, for port A, *
+; * interrupt mode 2 is selected and interrupts are enabled.                   *
+; *                                                                              *
+; * The Model II build prepends MC_ISR and MH_OUT from the BIOS listing.       *
+; ********************************************************************************
+
+        INCLUDE hardware.inc
+
+MX_RING         EQU     MX_BASE+01C0H   ; 64-byte port A receive ring, F7C0H-F7FFH
+MX_HIGH         EQU     48              ; lower RTS at this many waiting bytes;
+                                        ; it is raised again when the ring empties
+CTC_COUNT       EQU     047H            ; counter, no interrupt, constant follows, reset
+SIO_RESET       EQU     018H            ; WR0: channel reset
+SIO_ERRRST      EQU     030H            ; WR0: error reset
+
+        CSEG
+        .PHASE  MX_BASE
+
+; -------------------------------------------------------------------------------
+; Mode-2 vector table (MX_VECT): CTC channels 0-3, then the SIO
+; -------------------------------------------------------------------------------
+
+  ; CTC channels 0-2 never interrupt and the SIO always supplies MX_SIOV, so
+  ; only the words at +6 and +8 are vectors; the other slots hold state.
+XOPENF: DB      0                       ; ports set up (bit 0 A, bit 1 B)
+        DB      0
+XHEAD:  DB      LOW MX_RING             ; ring indexes: next write, next read
+XTAIL:  DB      LOW MX_RING
+        DB      0,0
+        DW      MC_ISR                  ; CTC channel 3: software clock
+        DW      MX_SISR                 ; SIO: port A received data
+        DB      'M2X',1                 ; MX_SIGN
+        DB      0,0
+        IF      $ NE MX_CONST
+        DB      MX_EXT_TABLE_MISPLACED  ; undefined: forces an assembly error
+        ENDIF
+
+; -------------------------------------------------------------------------------
+; Entry points (MX_CONST ... MX_SEROS in hardware.inc)
+; -------------------------------------------------------------------------------
+
+        JP      XCONST
+        JP      XCONIN
+        JP      XCONOT
+        JP      XLIST
+        JP      XLSTST
+        JP      XPUNCH
+        JP      XREADR
+        JP      XIMON
+        IF      $ NE MX_CFG
+        DB      MX_EXT_ENTRY_MISPLACED  ; undefined: forces an assembly error
+        ENDIF
+
+  ; MX_CFG, one entry per port: CTC divisor (2 MHz / 16 / divisor = baud;
+  ; 13 = 9600), then the SIO setup written with OTIR: channel reset, WR4 (x16
+  ; clock, 1 stop bit, no parity), WR3 (8 bits, receiver on), WR5 (DTR, 8 bits,
+  ; transmitter on, RTS), WR1 (port A: receive interrupt on every character),
+  ; WR2 (the vector, in channel B only).
+XCFGA:  DB      13,018H,4,044H,3,0C1H,5,0EAH,1,018H,2,MX_SIOV
+XCFGB:  DB      13,018H,4,044H,3,0C1H,5,0EAH,1,000H,2,MX_SIOV
+XCFGW5  EQU     XCFGA+7                 ; port A WR5, for RTS
+XSEQLEN EQU     11
+
+; -------------------------------------------------------------------------------
+; Logical-device routing
+; -------------------------------------------------------------------------------
+
+  ; Device code for each IOBYTE value: 0 port A, 1 port B, 2 CRT, 3 none,
+  ; 4 BAT (reader in, list out).
+XDEVT:  DB      0,2,4,1                 ; CON: TTY: CRT: BAT: UC1:
+        DB      0,0,1,3                 ; RDR: TTY: PTR: UR1: UR2:
+        DB      0,0,1,3                 ; PUN: TTY: PTP: UP1: UP2:
+        DB      0,2,3,1                 ; LST: TTY: CRT: LPT: UL1:
+
+  ; B = 4 * logical device (0 CON, 4 RDR, 8 PUN, 12 LST). A = E = device code.
+XMAP:   LD      HL,XDEVT
+        LD      A,L
+        ADD     A,B
+        LD      L,A
+        LD      A,(0003H)
+        SRL     B                       ; 2 rotations per field
+        JR      Z,XMNOR
+XMROT:  RRCA
+        DJNZ    XMROT
+XMNOR:  AND     3
+        ADD     A,L
+        LD      L,A
+        LD      A,(HL)
+        LD      E,A
+        RET
+
+XCONST: LD      B,0
+        CALL    XMAP
+        CP      4
+        JR      NZ,XST1
+        LD      B,4                     ; BAT: reader status
+        CALL    XMAP
+XST1:   CP      2
+        JR      C,XSERST
+XNONE:  XOR     A
+        RET
+
+XCONIN: LD      B,0
+        CALL    XMAP
+        CP      4
+        JR      NZ,XIN1
+XREADR: LD      B,4
+        CALL    XMAP
+XIN1:   CP      2
+        JR      C,XSERIN
+        LD      A,01AH                  ; no reader: end of file
+        RET
+
+XCONOT: LD      D,C
+        LD      B,0
+        CALL    XMAP
+        CP      4
+        JR      Z,XLIST2                ; BAT: output goes to LST:
+XOT1:   CP      2
+        JP      C,XSEROT
+        RET
+
+XLIST:  LD      D,C
+XLIST2: LD      B,12
+        CALL    XMAP
+        CP      2
+        JR      NZ,XOT1
+        LD      C,D                     ; CRT:
+        JP      MH_OUT
+
+XPUNCH: LD      D,C
+        LD      B,8
+        CALL    XMAP
+        JR      XOT1
+
+XLSTST: LD      B,12
+        CALL    XMAP
+        CP      2
+        JR      C,XSEROS
+        JR      NZ,XNONE                ; LPT: has no driver yet
+        JR      XREADY                  ; CRT: is always ready
+
+; -------------------------------------------------------------------------------
+; Serial ports: E = 0 (A) or 1 (B)
+; -------------------------------------------------------------------------------
+
+XSERST: CALL    XOPEN
+        LD      A,E
+        OR      A
+        JR      NZ,XBST
+        LD      A,(XHEAD)               ; port A: anything in the ring?
+        LD      HL,XTAIL
+        SUB     (HL)
+        RET     Z
+XREADY: LD      A,0FFH
+        RET
+XBST:   IN      A,(SIOBCTL)             ; port B: RR0 bit 0, receive character
+        AND     1
+        RET     Z
+        JR      XREADY
+
+XSERIN: CALL    XOPEN
+        LD      A,E
+        OR      A
+        JR      NZ,XBIN
+XAWAIT: LD      A,(XHEAD)               ; the interrupt fills the ring
+        LD      HL,XTAIL
+        CP      (HL)
+        JR      Z,XAWAIT
+        LD      L,(HL)
+        LD      H,HIGH MX_RING
+        LD      B,(HL)
+        LD      A,L
+        INC     A
+        OR      LOW MX_RING             ; ring indexes run C0H-FFH
+        LD      (XTAIL),A
+        LD      HL,XHEAD
+        CP      (HL)
+        JR      NZ,XAGOT
+        DI                              ; ring empty: make sure RTS is on
+        LD      A,5
+        OUT     (SIOACTL),A
+        LD      A,(XCFGW5)
+        OUT     (SIOACTL),A
+        EI
+XAGOT:  LD      A,B
+        RET
+XBIN:   IN      A,(SIOBCTL)
+        AND     1
+        JR      Z,XBIN
+        IN      A,(SIOBDATA)
+        RET
+
+XSEROS: CALL    XOPEN
+        LD      A,E
+        ADD     A,SIOACTL
+        LD      C,A
+        IN      A,(C)                   ; RR0 bit 2, transmit buffer empty
+        AND     4
+        RET     Z
+        JR      XREADY
+
+XSEROT: CALL    XSEROS                  ; leaves C = control port
+        OR      A
+        JR      Z,XSEROT
+        DEC     C                       ; control port - 2 = data port
+        DEC     C
+        OUT     (C),D
+        RET
+
+  ; Set port E up on its first use: baud rate, SIO channel, and for port A the
+  ; receive interrupt. Preserves DE.
+XOPEN:  LD      A,E
+        INC     A                       ; open flag: bit 0 port A, bit 1 port B
+        LD      B,A
+        LD      HL,XOPENF
+        AND     (HL)
+        RET     NZ
+        LD      A,B
+        OR      (HL)
+        LD      (HL),A
+        LD      HL,XCFGA
+        LD      C,CTCCH0                ; port A: receive and transmit clocks
+        LD      B,2
+        LD      A,E
+        OR      A
+        JR      Z,XOPCLK
+        LD      HL,XCFGB
+        LD      C,CTCCH2                ; port B: one clock
+        DEC     B
+XOPCLK: LD      A,CTC_COUNT
+        OUT     (C),A
+        LD      A,(HL)
+        OUT     (C),A
+        INC     C
+        DJNZ    XOPCLK
+        INC     HL
+        LD      A,E
+        ADD     A,SIOACTL
+        LD      C,A
+        LD      B,XSEQLEN
+        LD      A,E
+        OR      A
+        JR      NZ,XOPB
+  ; Port A: hold interrupts off until mode 2 is selected. Port B is polled, and
+  ; neither handler touches channel B or the CTC baud channels, so its setup
+  ; needs no masking.
+        DI
+        OTIR
+        LD      HL,XCFGA+XSEQLEN-1      ; the vector lives in channel B WR2
+        LD      BC,2*256+SIOBCTL
+        OTIR
+        JR      XIMON                   ; port A interrupts: mode 2, enable
+XOPB:   OTIR
+        RET
+
+  ; Interrupt mode 2 through MX_VECT; PIO interrupts off; enable interrupts.
+  ; Used by the serial ports and by M2CLK.RSX when the clock is set.
+XIMON:  DI
+        LD      A,HIGH MX_VECT
+        LD      I,A
+        IM      2
+        LD      A,MX_CTCV               ; bit 0 = 0: CTC vector word
+        OUT     (CTCCH0),A
+        LD      A,3                     ; PIO interrupt control: disabled
+        OUT     (PIOACTL),A
+        OUT     (PIOBCTL),A
+        EI
+        RET
+
+; -------------------------------------------------------------------------------
+; Interrupt handlers
+; -------------------------------------------------------------------------------
+
+  ; SIO: port A received data. Drain the receiver into the ring; a full ring
+  ; drops the byte. Uses 8 bytes of the interrupted program's stack.
+MX_SISR:PUSH    AF
+        PUSH    HL
+        PUSH    DE
+XSLOOP: IN      A,(SIOACTL)
+        RRCA
+        JR      NC,XSDONE
+        IN      A,(SIOADATA)
+        LD      D,A
+        LD      A,(XHEAD)
+        LD      L,A
+        INC     A
+        OR      LOW MX_RING
+        LD      E,A                     ; next head
+        LD      A,(XTAIL)
+        CP      E
+        JR      Z,XSLOOP                ; full
+        LD      H,HIGH MX_RING
+        LD      (HL),D
+        LD      H,A                     ; tail
+        LD      A,E
+        LD      (XHEAD),A
+        SUB     H
+        AND     03FH
+        CP      MX_HIGH
+        JR      C,XSLOOP
+        LD      A,5                     ; nearly full: lower RTS
+        OUT     (SIOACTL),A
+        LD      A,(XCFGW5)
+        AND     0FDH
+        OUT     (SIOACTL),A
+        JR      XSLOOP
+XSDONE: LD      A,SIO_ERRRST            ; clear any overrun or framing error
+        OUT     (SIOACTL),A
+        POP     DE
+        POP     HL
+        POP     AF
+MX_SPUR:EI                              ; also the handler for unused vectors
+        RETI
+
+        IF      $ GT MX_RING
+        DB      MX_EXT_OVERFLOW         ; undefined: forces an assembly error
+        ENDIF
+        .DEPHASE
+        END
