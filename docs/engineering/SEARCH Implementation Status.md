@@ -1,0 +1,182 @@
+# SEARCH implementation and qualification status
+
+**Status:** SEARCH 1.0 revision 001 integrated into Utilities; acceptance updated 2026-10-27.
+Assigned-byte and paired Utilities checks pass; see the
+[Utilities acceptance](SEARCH%20Utilities%20Acceptance.md). The historical
+[candidate qualification](SEARCH%20Qualification.md) remains distinct. Whole
+Utilities release publication is separate. The
+[engineering specification](SEARCH%20Specification.md) controls the behavior;
+the [manual](../user/utilities_manual.md#search-file-content-search) describes
+the implemented interface.
+
+## Implemented command
+
+- Bounded, quote-aware pattern-first command parsing, literal-safe query
+  recognition, `/HELP` precedence, and complete validation before file access.
+  A double quote terminates a pattern; there is no embedded-quote escape. TAB
+  is literal inside quotes and separates arguments outside them. Embedded NUL
+  and command tails over 127 bytes are rejected without truncation.
+- Literal TEXT plus valid contiguous/spaced HEX from the same pattern,
+  `/NOHEX`, `/NOTEXT`, ASCII-only `/NOCASE`, and 64 decoded bytes per enabled
+  mode. Multiple spaces between HEX pairs are accepted; leading/trailing
+  spaces and mixed contiguous/spaced groups are not HEX. Invalid HEX silently
+  falls back to enabled TEXT. Empty/no-mode requests are errors.
+- Production shared DU/filespec/attribute/FCB components; canonical DU order,
+  native directory order within a DU, and one scan per logical filename after
+  collapsing qualifying extents. Unqualified scope is the captured caller DU.
+- Full logical-record reads, including padding and 1Ah; cross-record/extent
+  matching and overlapping occurrences; zero-based eight-digit HEX offsets;
+  one-based TEXT attribution with CRLF, bare CR and bare LF line breaks.
+- One TEXT report per matching line, chosen by its first occurrence; independent
+  HEX reports. All occurrences contribute to counts, including distant matches
+  outside a chosen excerpt. Nonprinting bytes use `<HH>` rather than raw
+  terminal controls. Canonical filename bytes are also rendered safely.
+- Forward-only `/P`: Space and Enter advance a page. Ctrl-C suppresses later
+  detail/prompts while full scanning and final summaries continue. Unpaged
+  Ctrl-C uses the same display-stop policy, polled at record boundaries as well
+  as result boundaries. Essential diagnostics remain visible.
+- Eight-byte files-searched, files-matched, TEXT, HEX and combined totals,
+  including zero values. Empty/partially read files count as searched; failed
+  opens do not. Returning errors identify the location/file and a failing
+  offset when available, and mark the summary incomplete. Numeric overflow
+  saturates counters and reports an accounting error, never a wrapped total.
+- Metadata-owned `SEARCH 1.0 (001)` identification and help, private stack,
+  direct return, caller DU restoration and conventional DMA restoration.
+
+`src/utilities/search.mac` supplies the entry/return path. The `search/` modules
+separate parser, matcher/state, file traversal and display. The builder emits
+the COM image, prepared native source and program/source
+checksums. Revision 001 now has cross/native input baselines for both targets.
+SEARCH is included in newly generated Utilities candidates with exact paired-image
+acceptance; no System image or existing public release is overwritten.
+
+## Bounded display and traversal choices
+
+The supported simple console profile is 80 columns by 24 rows. Explicit wrapping
+at 79 characters avoids automatic terminal-wrap ambiguity; `/P` pauses after
+23 rendered content rows, including essential error rows before suppression.
+There are no cursor controls or monitor dependencies.
+A different geometry/profile is not qualified by these checks.
+
+A TEXT excerpt looks back up to 64 source bytes before its first occurrence
+(also retaining a paired CR when the match begins on LF),
+then displays at most 192 source bytes, ending at the first line break after the
+complete match. A matched terminator remains visible as `<0D>`/`<0A>` and does
+not pull an unrelated next line into the result. Ordinary lines of up to 64
+bytes are shown in full; omitted edges have explicit `[...]` indicators.
+The renderer uses a cloned open FCB and a private record buffer for bounded
+random-read lookaround; it restores the engine's DMA before returning. A reread
+failure is essential diagnostic output and qualifies the final summary, while
+the primary search continues to count every successfully read record.
+
+File I/O can invalidate BDOS directory-search state. The engine restarts and
+replays directory enumeration after file operations and checks earlier qualifying
+entries to collapse extents. This preserves order with constant storage and no
+temporary file/catalog capacity limit, at a quadratic directory-work cost.
+Earlier nonqualifying attribute entries do not hide later qualifying extents.
+Concurrent directory mutation is not a snapshot contract.
+
+Function 35 supplies record count only in the FCB; its A return is unspecified
+and may be FFh on success. SEARCH does not invent an error status for it. Every
+nonzero Function 33 result before the established record count is incomplete
+coverage, never stale data or normal completed EOF. Returning user aliases and
+drive-selection failures are diagnosed before directory/file access.
+
+Stock BDOS may convert an underlying directory failure to its ordinary FFh
+end status, or prompt/warm boot without returning. Such unobservable/nonreturning
+paths cannot be reliably diagnosed or recovered by SEARCH. Recorded error tests
+cover returning statuses; they do not claim interception of hidden physical
+errors. Owned returning paths restore DU, entry stack and DMA to 0080h.
+
+## Resources and identity
+
+The current COM image is **8,036 bytes**, including its fixed buffers, **512-byte
+private stack** and **16-byte lower stack guard**. The CPU command suite observed
+at most **70 bytes** of that private stack, including the simulated BDOS call
+frames; this is not a worst-case physical-BDOS stack measurement. Guard checks
+pass on query, invalid-command, result, paging, suppression and error paths.
+No allocation grows with file size, line length, match count or directory size.
+
+The image occupies 8,036 bytes of TPA payload above 0100h. An 8 KiB advertised
+TPA budget and lowered caller stack now pass on all three platforms through a
+resident observer; the exact absolute minimum is not claimed. Positions/line tags are
+32-bit; aggregate counters and decimal conversion are 64-bit. Both numeric
+boundaries and non-silent overflow paths have compiled-code tests.
+
+Current candidate SHA-256:
+`aca7362a046488c0dd0880e00bf7d03ecaaf875a09e6fc3ae8ee0830bf7271bd`.
+The full selected input fingerprint and source provenance are local build-report
+fields, not embedded Git identifiers or release qualification claims.
+
+## Repeatable checks
+
+```text
+python3 tools/build_search.py
+python3 tools/test_search_matcher.py
+python3 tools/test_search_parser.py
+python3 tools/test_search_scan.py
+python3 tools/test_search.py
+python3 tools/build_native_search.py --verify
+python3 tools/test_component_registry.py
+python3 tools/component_registry.py --check
+```
+
+The matcher/parser/scan tests execute actual assembled Z80 with independent
+byte/line oracles and a hostile public-BDOS adapter. The adapter destroys search
+state after every file operation, clobbers volatile registers, returns FFh on
+successful Function 35, and supplies explicit faults. Coverage includes all 64
+maximum-pattern record splits, binary bytes/padding, overlap/dual counts, mixed
+line endings, cross-file reset, >64 KiB, shared selectors/predicates, extent
+collapse, empty files, error continuation, wide counter saturation and cleanup.
+
+The complete-command suite additionally verifies query paths use console output
+only, malformed invocations perform no file/DU/DMA operations, normal and bounded
+TEXT excerpts, control escaping, full uint64 decimal output, Enter/Space page
+advancement, Ctrl-C display suppression with identical totals, essential errors
+after suppression excerpt reread failures without losing primary counts, correct paging of
+essential error rows, and unpaged Ctrl-C after the final detail.
+
+The native builder runs ZSM4 4.7/LINK 1.3 under stock CP/M 2.2 in cpmsim and
+compares every COM byte with cross output. Its command fixtures verify the full
+help screen, a 513-record file spanning several extents with a late match at
+byte 65,535, all five totals, and Ctrl-C at a paging prompt. The searched fixture
+is read back unchanged. Native and cross program images are byte-identical; the native CP/M file
+is padded to logical records, so parity compares the 8,036-byte program image.
+
+`tools/test_search_media.py` stages disposable copies of supplied BetterCP/M
+platform images. The `build/search-platform-final-7/` paths below identify the
+historical 001-dev runs; current assigned-byte Utilities B execution and native
+builds are bound by [Utilities acceptance](SEARCH%20Utilities%20Acceptance.md). The cpmsim case passes help/query precedence, combined users
+3 and 31, independent TEXT/HEX results, final totals, Ctrl-C continuation and a
+whole-disk byte comparison. See `build/search-platform-final-7/cpmsim/` for the local transcript/evidence.
+
+The Model 4 case passes user-31 TEXT/HEX results, caller-user restoration through
+SUBMIT, a captured 23-row page plus bottom prompt, Ctrl-C display suppression,
+and full totals for all 80 occurrences. The standard M4SCRN/ADM3A startup is used;
+SEARCH itself makes only ordinary BDOS calls and does not load or require these
+providers. Automated command text through the physical key matrix stalled, so
+commands are supplied by startup SUBMIT and only Enter/Ctrl-C are injected.
+A small HOLD probe pauses between commands to capture results reliably.
+All searched fixture contents are read back unchanged. Whole-disk immutability
+is not asserted for this case because startup SUBMIT writes/deletes its own spool.
+Local screens and evidence are in `build/search-platform-final-7/model4/`.
+
+| Focused qualification | Result |
+| --- | --- |
+| Assembled matcher, parser, traversal and complete-command CPU fixtures | PASS |
+| Native ZSM4/LINK program-image parity | PASS, 8,036 bytes |
+| Stock CP/M 2.2 full command, large file/extents, help and paging stop | PASS |
+| BetterCP/M cpmsim users 3/31, results, paging stop, whole disk unchanged | PASS |
+| BetterCP/M Model 4 user 31, captured paging/stop, fixture contents unchanged | PASS |
+| Whole Utilities release acceptance and absolute minimum TPA | Not claimed |
+
+## Release boundary
+
+SEARCH's assigned revision, Utilities membership and paired acceptance are now
+recorded in [SEARCH Utilities Acceptance](SEARCH%20Utilities%20Acceptance.md).
+The historical candidate evidence is preserved rather than relabelled.
+
+Whole Utilities release publication remains separate. Physical media timing,
+arbitrary BIOS/interrupt stack use and broader Model 4 interactive command typing
+remain explicit limits, not claimed outcomes. No merge or public release occurs
+as part of this work.

@@ -4,13 +4,20 @@ This manual explains how to use the programs supplied on the BetterCP/M Utilitie
 
 The Utilities Disk is being assembled separately from the System Disk. This manual covers DUMP, the initial DDT debugger adaptation, the six standalone compression utilities SQ, USQ, CR, UNCR, LZH and UNLZH, TED, DASM with its DSYM/DLINK companions, and the original ZSM4/LINK development tools. Chapters for other utilities will be added as those programs are completed and selected for distribution.
 
+The CRC chapter records an approved design; CRC is not yet implemented or included in Utilities Disk images.
+
 The COMPARE chapter describes a development utility. COMPARE is not yet qualified
-or included in current Utilities Disk images.
+or included in current Utilities Disk images. SEARCH 1.0 is included in newly
+generated Utilities candidates and has passed paired-image acceptance on both BetterCP/M targets. Public release publication
+remains separate.
 
 ## Contents
 
 - [Using the Utilities Disk](#using-the-utilities-disk)
+- [NOAH archive utility](#noah-archive-utility)
+- [SEARCH file-content search](#search-file-content-search)
 - [COMPARE binary file comparison](#compare-binary-file-comparison)
+- [CRC file checksums and verification lists](#crc-file-checksums-and-verification-lists)
 - [DUMP hexadecimal file viewer](#dump-hexadecimal-file-viewer)
   - [Quick start](#quick-start)
   - [Command syntax and options](#command-syntax-and-options)
@@ -55,6 +62,146 @@ B0:DUMP A0:README.TXT
 Here, `B0:` locates DUMP itself; `A0:` locates the file it will display. The file operand uses its own drive and user qualification independently of the program’s location. A filename without qualification refers to the caller’s current drive and user area.
 
 In syntax descriptions, `file` and `offset` are placeholders to replace with your own values. `Ctrl-S` means hold Control while pressing S. Do not type the word “Ctrl” or the hyphen.
+
+## SEARCH file-content search
+
+**SEARCH 1.0 — included in newly generated Utilities candidates.** This chapter
+describes the interface qualified on both paired emulator targets.
+The [engineering specification](../engineering/SEARCH%20Specification.md)
+controls the design.
+
+SEARCH finds literal text and byte sequences in files without changing them.
+Use DIR /WHEREIS when you want to locate filenames instead of searching contents.
+
+### SEARCH syntax and options
+
+```text
+SEARCH [options] "pattern" filespec [options]
+SEARCH "Error" A0:*.TXT /NOCASE /NOHEX
+SEARCH "41 42" B[3-7]:*.COM /NOTEXT /P
+SEARCH "4142" [A0,B[-],C[4,7-9]]:*.DAT
+```
+
+Put the quoted pattern first, followed by exactly one filespec. Put options before
+the pattern or after the filespec. Quotes delimit the pattern; spaces and letter
+case inside them are significant. Quoted `/VER` or `/HELP` is search data.
+Options and filenames are case-insensitive. Repeating a flag has no extra effect.
+
+| Option | Meaning |
+| --- | --- |
+| `/NOHEX` | Search only the literal TEXT interpretation. |
+| `/NOTEXT` | Search only decoded HEX bytes; the pattern must be valid HEX. |
+| `/NOCASE` | Ignore ASCII letter case in TEXT; HEX bytes remain exact. |
+| `/P` | Pause result details one page at a time, moving forward only. |
+| `/HELP` | Display help without searching; takes precedence over `/VER`. |
+| `/VER` | Display utility identification without searching. |
+
+By default SEARCH tries **both** interpretations independently. `"4142"` searches
+for the four literal characters `4142` and for the two bytes `41h 42h` (`AB`).
+`"41 42"` searches for those five literal characters and the same two decoded
+bytes. HEX accepts contiguous pairs of hexadecimal digits or pairs separated by
+spaces; hex digit case is insignificant. Odd digit counts, `0x` prefixes, `H`
+suffixes, commas and incomplete byte pairs are not valid HEX. Invalid HEX is
+silently ignored when TEXT is enabled: `"hello"` is an ordinary TEXT search.
+With `/NOTEXT`, invalid HEX is an error. `/NOHEX /NOTEXT` is invalid.
+
+TEXT is literal: no regular expressions, content wildcards or backslash escapes.
+It is case-sensitive unless `/NOCASE` is supplied. `/NOCASE` folds ASCII letters
+only, leaving high-bit bytes unchanged; it has no effect with `/NOTEXT`.
+An empty pattern is invalid. Each enabled interpretation is limited to 64 decoded
+bytes. The entire command tail, including quotes, filespec and options, must fit
+within 127 bytes; consequently a 64-byte HEX pattern cannot fit on the command
+line. SEARCH does not silently shorten a pattern.
+
+The current CCP uppercases command tails, including quoted text. SEARCH cannot
+recover original case lost before it starts. On that CCP, use `/NOCASE` for
+ASCII text regardless of case, or `/NOTEXT` with HEX to specify exact bytes.
+A double quote ends the pattern; no embedded-quote escape is provided. A TAB
+inside quotes is literal pattern data; outside quotes it separates arguments.
+
+### Selecting files for SEARCH
+
+An unqualified filespec searches the caller's current drive and user area.
+Filename `*` and `?` patterns use the shared CP/M 8.3 rules. Extended DU selectors
+can select several locations:
+
+```text
+SEARCH "hello" B7:*.TXT /NOCASE
+SEARCH "1A" B[-]:*.* /NOTEXT
+SEARCH "Error" [A0,B[3-7],D[-]]:*.LOG /NOHEX
+```
+
+`B[-]` means all users 0–31 on B; `B[3-7]` means users 3 through 7 inclusive.
+A bare drive inherits the caller's user, and a bare user inherits the caller's
+drive. Compound terms inherit from the caller, never from the preceding term.
+Overlapping selections do not repeat searches. Selected locations are visited
+in drive order, then user order, with native directory order within each DU.
+Unavailable locations are diagnosed; they are never silently mapped elsewhere.
+Existing shared attribute-selection conventions apply. SEARCH does not adopt
+WHEREIS's global scope or special default inclusion of system files.
+
+### SEARCH results and totals
+
+TEXT results identify the file, `[TEXT]`, and a one-based line number. An ordinary
+matching line is shown once even if it contains several occurrences. The first
+occurrence on a line chooses its excerpt. Lines of up to 64 bytes are shown in
+full; longer lines use a window of at most 192 source bytes, looking back up to
+64 bytes before that occurrence. `[...]` marks omitted edges. Other distant
+occurrences on the same line still count, even when outside the chosen excerpt. SEARCH still
+searches the whole line and counts every occurrence, including overlaps.
+CR/LF is one line break; bare CR and bare LF also end lines. A final unterminated
+line is valid. Control bytes are rendered visibly rather than sent to the console.
+
+HEX results identify the file, `[HEX]`, and a zero-based byte offset printed as
+eight hexadecimal digits. TEXT and HEX results are independent, including when
+both interpretations match at the same position. For example, a file beginning
+with `4142 AB 4142` followed by CR/LF yields:
+
+```text
+A0:NOTES.TXT [TEXT] line 1: 4142 AB 4142
+A0:NOTES.TXT [HEX] offset 00000005
+Files searched: 1
+Files matched: 1
+Text matches: 2
+Hex matches: 1
+Total matches: 3
+```
+
+All successfully read 128-byte CP/M records are searched in full, including final
+padding and `1Ah`. `1Ah` does not end TEXT searching. Matches may span records,
+extents or line endings. A TEXT match spanning a line ending belongs to the line
+where it starts. No bytes beyond record EOF are invented.
+
+The final summary always includes files searched, files matched, TEXT matches,
+HEX matches and their sum, including zeros. Files searched includes successfully
+opened empty and partially read files. A file with either kind of match counts
+once in files matched. No matches is a normal result when coverage is complete.
+
+### SEARCH paging and errors
+
+At a `/P` prompt, Space or Enter advances one page. Ctrl-C suppresses subsequent
+details and prompts, prints `DISPLAY INTERRUPTED` and `SEARCH CONTINUING...`,
+and lets SEARCH finish every remaining selected file before printing totals.
+It does not cancel the search. Error messages remain visible. The supported
+console profile is 80 columns by 24 rows: output wraps explicitly at 79 columns,
+with 23 content rows per page. No screen backend is required. There is no backward
+paging. Ctrl-C during unpaged output also stops display while searching continues;
+final totals remain available. Neither display-stop action cancels coverage.
+
+Open, read and directory errors identify the affected location or file. SEARCH
+continues elsewhere when safe and marks the final summary incomplete whenever
+selected data could not be searched. Such totals describe observed data only;
+zero matches after an error is not proof that all selected files lack the pattern.
+Some platform disk-error paths prompt or warm boot without returning to SEARCH;
+full recovery and final totals cannot be promised on those paths. Ctrl-C at an
+OS `Bad Sector` prompt may warm boot; it is different from Ctrl-C at SEARCH's
+own paging prompt. SEARCH needs an 8 KiB TPA budget on the qualified platforms.
+Large directories can be slow because it replays directory searches after file
+reads; a full 64-entry directory took about 23 seconds at an emulated 4 MHz.
+
+SEARCH restores the caller's drive and user area on every handled exit. It does
+not alter files or attributes, create temporary result files, search inside
+archives, or replace text.
 
 ## COMPARE binary file comparison
 
@@ -194,6 +341,172 @@ statistics are explicitly labelled incomplete.
 A file-open error identifies the affected file. A read failure prevents a
 completed comparison result; partial totals must not be treated as complete.
 Handled exits close opened files and restore the caller's drive and user area.
+
+## CRC file checksums and verification lists
+
+**Design approved; implementation pending.** This entry describes the selected CRC 1.0 interface. CRC is not yet implemented or qualified, and this chapter does not claim that CRC.COM is present on the Utilities Disk. The [engineering specification](../engineering/CRC-Specification.md) is the controlling design.
+
+CRC answers two related questions: what check values identify these files, and do the files still agree with an earlier list? It calculates four values: the original CP/M CRCK calculation, corrected CRCK, CHEK and CRC-32. You can display them, save a list, or check a directory against a saved reference. No input file is altered.
+
+### Getting started with CRC
+
+```text
+CRC
+CRC B3:*.COM
+CRC B[1,3,4-5]:*.COM
+CRC A0:*.COM B3:*.TXT
+CRC /CHECK B3:
+CRC /CHECK B[1-3]:FILE.TXT
+```
+
+With no filespec, CRC selects `*.*` in your current logged drive/user area. A bare DU such as `B3:` also means `*.*`. Extended DU lists and ranges follow the common BetterCP/M rules. Separate filespecs may select different files in different locations. Overlapping selections do not process a physical file twice.
+
+If CRC is on the Utilities Disk in B0: and your command environment does not find it automatically, use `B0:CRC`. The location of CRC.COM does not determine the locations of the files it checks.
+
+### CRC options
+
+```text
+CRC [options] [filespec ...] [options]
+```
+
+| Option | Effect |
+| --- | --- |
+| `/CRCK` | Select the original historical CRCK calculation. |
+| `/CRCK5` | Select corrected CRCK. |
+| `/CHEK` | Select CHEK-compatible CRC. |
+| `/CRC32` | Select CRC-32/ISO-HDLC, the common ZIP/Ethernet variant. |
+| `/FILE=filespec` | Write one master list. A single destination DU may be supplied. |
+| `/LOCAL=filename` | Write an individual list in each selected DU. Supply a filename only. |
+| `/LEGACY` | Write historical CRCKLIST records and force historical CRCK alone. |
+| `/CHECK` | Verify against a reference discovered in each selected DU. |
+| `/CHECK=filename` | Verify against this exact list name in each selected DU. Supply a filename only. |
+| `/40` | Stack screen results for a 40-column display. Saved lists are unchanged. |
+| `/HELP` | Display help without accessing files. |
+| `/VER` | Display the utility's version and revision without accessing files. |
+
+Option names are case-insensitive, and options may appear before, between or after filespecs. Without algorithm switches, calculation displays all four values. Supplying switches selects their combination: `/CRCK /CHEK` displays those two. Repeated identical switches are harmless. When a value option is repeated, every occurrence must be valid and the last value is used. `/HELP` takes precedence over `/VER`; either query suppresses ordinary command processing.
+
+`/LEGACY` always selects historical CRCK only. `/CRCK5`, `/CHEK` and `/CRC32` are ignored when `/LEGACY` is present, regardless of their order. You do not have to add `/CRCK` as well.
+
+Calculation/list generation and verification are separate operations. Do not combine `/CHECK` with `/FILE=` or `/LOCAL=`. `/FILE=` and `/LOCAL=` may be used together.
+
+### Which calculation to use
+
+Names caused some confusion even during the CP/M years. SIG/M's CRC utility version 5.0 continued to calculate the original CRCK value. The separately developed corrected CRCK 5.x calculation produces different answers. `/CRCK5` selects that corrected calculation; it does not mean a five-bit CRC.
+
+Use `/CRCK` for original SIG/M catalog and CRCKLIST values. CHEK is another 16-bit CRC calculation, also found in the CP/M library and RCPM tools. CRC-32 gives a 32-bit result. None of these values authenticates a file or establishes that it came from a trusted author; they are file-integrity checks.
+
+CRC includes every byte of each 128-byte CP/M logical record. Embedded Ctrl-Z bytes and padding at the end of the final record are included. Text line endings are not converted. `RECS` is the exact record count; multiply by 128 to obtain the byte count being checked. A host copy with stripped padding or translated line endings may therefore produce a different result.
+
+### Reading the CRC display and native lists
+
+The normal display uses a table like the native saved format. These two rows use actual values from SIG/M Volume 310:
+
+```text
+; BetterCP/M CRC list
+NAME     EXT  RECS  CRCK  CRCK5  CHEK  CRC32
+-------- ---  ----  ----  -----  ----  --------
+ZMD146   LBR  1418  136B   A548  D24B  82A2F154
+ZMDOVL2  LBR   372  B06D   6B36  C153  DE35205C
+```
+
+The name and extension occupy separate fixed fields with no dot. An extensionless file leaves EXT blank. Decimal record counts and hexadecimal values are right-aligned to their dash fields. Only selected algorithms appear. The RECS column grows when necessary, with a new consistent layout for that DU section.
+
+The column header identifies the calculations; the dash runs establish their positions. CRC reads data by columns, so an empty extension cannot be confused with a record count. Keep the header, separator and rows aligned if editing a list. The reader accepts algorithm columns in any order, blank lines, comments beginning with `;`, and repeated section headers. Unknown or duplicate columns, missing values and malformed records are reported rather than guessed.
+
+`/40` puts the filename on one line and the record count and each selected value on separate lines. It changes screen presentation only. Saved lists retain the standard table, and `/LEGACY` retains its historical file layout.
+
+### Saving master and local lists
+
+```text
+CRC B3:*.COM /FILE=A0:MASTER.LST
+CRC B[1-3]: /LOCAL=CRC.LST
+CRC B[1-3]: /FILE=A0:MASTER.LST /LOCAL=CRC.LST
+CRC B3:*.COM /CRCK /CHEK /LOCAL=CRC.LST
+```
+
+The first command saves one master list in A0:. The second writes CRC.LST in each of B1, B2 and B3. The third does both in the same run, reading each input file once. The fourth writes only historical CRCK and CHEK values.
+
+Each DU is handled as a section. Files are alphabetized by name, then extension. Separate filespec operands establish first-encounter DU order; a bracketed selector follows the common canonical drive/user order. A master is the concatenation of the individual sections, with a blank line between them. Each section repeats its header and separator.
+
+Saved sections do not record DU locations. Files with the same name in different DUs remain separate records. This makes local lists easy to move with their files, but a master list does not remember where each section originally lived. Keep that in mind when combining unrelated versions of the same filename.
+
+An unqualified `/FILE=` destination uses the DU you were logged into when CRC started. `/LOCAL=` takes only a filename because the destination is each target DU. A DU qualifier on `/LOCAL=` is an error and stops the command before files are processed. For example, use `/LOCAL=CRC.LST`, not `/LOCAL=A0:CRC.LST`.
+
+Output lists and temporary files are excluded from input selection. If master and local destinations name the same physical file, CRC writes that file once with the complete master contents; it does not attempt to keep a second local-only version under the same name.
+
+If a destination exists, CRC displays its full identity:
+
+```text
+B3:CRC.LST exists. Overwrite? (Y/n/a)
+```
+
+Y or Enter replaces that list. N leaves it alone and continues other requested outputs. A authorizes this and subsequent list replacements for this run. Ctrl-C cancels. CRC stages output before replacing a completed list. A failed or cancelled operation does not deliberately install a partial list under the final name; any recovery failure identifies the files left behind. Check the final output totals to see which lists were completed, declined or failed.
+
+### Writing a historical CRCKLIST
+
+```text
+CRC B3:*.* /FILE=CRCKLIST.CRC /LEGACY
+CRC B[1-3]: /LOCAL=CRCKLIST.CRC /LEGACY
+```
+
+`/LEGACY` reproduces the original prefix, padded dotted filename, two TABs before `CRC =`, space-separated hexadecimal bytes and blank lines between entries:
+
+```text
+--> FILE:  ZMD146  .LBR          CRC = 13 6B
+
+--> FILE:  ZMDOVL2 .LBR          CRC = B0 6D
+```
+
+TABs are expanded here for reading. Native headers, sizes and the other algorithms are omitted. CRC 5.0 and CRC 6.4 historical readers require the `--> FILE:  ` prefix; `/LEGACY` supplies it. Native output is single-spaced; legacy output deliberately remains double-spaced.
+
+### Checking files against their local list
+
+```text
+CRC /CHECK
+CRC /CHECK B3:FILE.TXT
+CRC /CHECK B[1-3]:*.COM
+CRC /CHECK=REFERENCE.LST B[1-3]:
+CRC /CHECK B3: /CRCK /CRC32
+```
+
+Every selected file is checked against one reference list in its own DU. The final example limits verification to recorded CRCK and CRC32 values. CRC does not fabricate values missing from a list: an entry containing neither selected algorithm is skipped and reported as such.
+
+Bare `/CHECK` tries these names in order, independently in each target DU:
+
+1. `CRC.LST`
+2. `CRCKLIST.*`
+3. `CRCKFILE.*`
+4. `-CATALOG.*`
+
+The first tier containing a candidate wins. If that tier contains several files, CRC reports ambiguity and asks you to select a name using `/CHECK=filename`. If none is found, it reports `No CRC list found` and continues to the next selected DU. It never searches your logged DU as a fallback. With no target operand, the logged DU is itself the target.
+
+`/CHECK=REFERENCE.LST` means REFERENCE.LST in each target DU. It does not mean a single central reference for every target. A DU qualifier on `/CHECK=` is an explicit error and aborts the command before processing. To check a moved collection, place its reference beside its files and select that DU.
+
+CRC displays the reference it selected. Once selected, a bad format, malformed list, absent checksum information or mismatch does not cause CRC to try a different reference. A catalog without checksum entries is not a usable reference. To use another file, name it explicitly.
+
+CRC recognizes its native tables, historical CRCKLIST/CRCKFILE records, and original SIG/M catalogs containing CRC columns. Historical `CRC =` fields and original SIG/M catalog CRCs mean historical CRCK. Some early SIG/M catalogs contain only descriptions: their separate CRCKLIST or CRCKFILE is the verification reference. Reading a historical list does not require `/LEGACY`.
+
+### Sizes, repeated names and verification results
+
+Size is checked first where available. Native RECS is exact. SIG/M whole-K sizes are rounded: a 3K entry permits 17 through 24 records, rather than requiring exactly 24. An incompatible size rejects that entry. A compatible size, or a list without sizes, always proceeds to checksum comparison.
+
+A master can contain several entries for the same filename. CRC compares the target file with the size-compatible candidates. A file matches only if every selected value actually recorded in one candidate agrees. It never combines values from different entries to manufacture a match. A complete matching candidate verifies the file; differing alternatives are identified separately. The report identifies which algorithms were actually checked.
+
+Wildcard checking reports both selected files absent from the reference and selected reference entries whose files are missing. The reference file itself is excluded from wildcard targets. Files outside your requested pattern do not count as failures.
+
+Expect separate reports for:
+
+- **MATCH:** one complete applicable reference entry agrees.
+- **SIZE MISMATCH / CHECKSUM MISMATCH:** the reference does not agree with the actual file.
+- **FILE NOT FOUND:** a selected reference entry names an absent file.
+- **FILE NOT LISTED:** a selected existing file has no reference entry.
+- **SKIPPED:** no selected algorithm is recorded for the applicable entry.
+- **READ ERROR / LIST ERROR:** verification could not be completed reliably.
+
+Per-DU and overall totals distinguish files from entries and show missing references and other incomplete jobs. Zero verified files is not an all-clear result. Individual matches can be reported even when another file or malformed entry prevents overall success.
+
+Ctrl-C cancels and reports an incomplete operation. Completed independent output lists remain, but uncommitted output is discarded. CRC restores your original drive/user selection before returning.
 
 ## DUMP hexadecimal file viewer
 
@@ -976,3 +1289,59 @@ The Utilities Disk supplies the original [ZSM4 4.7 assembler](ZSM4.md) and
 on a writable drive. Their original command syntax and identities are retained.
 Read `TOOLINFO.TXT`, `ZSM4COPY.TXT` and `LINKCOPY.TXT` for attribution and terms.
 The host Utilities package includes the complete ZSM4 source companion.
+
+## NOAH archive utility
+
+NOAH manages CP/M LBR libraries and ARC-compatible `.ARK`/`.ARC` archives.
+It is supplied on a separate NOAH Utilities disk for each platform. Mount that
+disk in B: in place of the primary Utilities disk when using NOAH.
+Keep `NOAH.COM` and its matching `NOAH.OVL` together. Change to their disk/user
+before starting NOAH, then qualify the archive and source operands with their
+writable work disks. Overlay lookup uses that invocation DU, then A0:.
+
+```text
+B:
+NOAH /LIST C:FILES.ARK
+NOAH /TEST C:FILES.ARK
+NOAH /EXTRACT C:FILES.ARK D:
+NOAH /ADD C:FILES.ARK D:*.TXT
+NOAH /ADD /SQ C:TEXTS.ARK D:*.TXT
+NOAH /ADD /CR C:BINARY.ARK D:*.BIN
+NOAH /REMOVE C:FILES.ARK *.BAK
+NOAH /COMPACT C:FILES.ARK
+```
+
+The same operations work with LBR. ADD requires one exact archive target;
+LIST, TEST, EXTRACT, REMOVE and COMPACT accept archive selectors and member
+patterns. `/CAPACITY=n` sets LBR directory capacity on ADD/COMPACT. Unknown new
+extensions require `/FORMAT=LBR` or `/FORMAT=ARK`; existing files are recognized
+by contents and are never converted by FORMAT.
+
+ARC ADD stores members without compression unless `/SQ` or `/CR` is explicit.
+These select native ARC methods 4 and 8 and preserve the original member name.
+LBR compression retains its standalone SQ/CR representation and marked filename.
+Standalone `/SQ`, `/CR` and `/EXPAND` remain available; `/EXTRACT /EXPAND` decodes
+one inner layer in LBR. ARC extraction decodes its archive-managed method.
+Input bytes include CP/M's final physical-record padding when no exact logical
+length is available; 00h, 1Ah and high-bit bytes are ordinary input data.
+
+`/Y` approves ordinary replacement/removal and explicit COMPACT. It never
+overrides read-only/system protection; `/R` and `/SYS` enable separate protected
+questions. `/Q` suppresses routine progress, retaining choices, warnings, errors
+and the final outcome. Escape or Ctrl-C cancels at safe boundaries.
+
+Ordinary ARC updates preserve retained headers/payloads and the entire suffix
+after the end marker. COMPACT trims only excess 00h/1Ah padding and refuses an
+opaque suffix. It does not recompress retained members. No-match REMOVE leaves
+the archive unchanged, including combined COMPACT.
+
+Every new archive/update is staged, reopened and verified before publication.
+Keep any reported TMP/BAK recovery files until the final state is understood.
+Uncertain rollback stops the batch and reports the affected paths. There is no
+automatic recovery/resume command or power-loss atomicity guarantee.
+
+The frozen selection limit is 512 candidates; actual transaction capacity also
+depends on active TPA and codec/source-plan requirements. Low-memory requests
+fail safely. The interactive browser, ZIP and LZH/CrLZH selectors remain deferred.
+Current qualification and media status are recorded in the
+[engineering integration record](../engineering/NOAH%20ARC%20Write%20Integration.md).
