@@ -14,6 +14,10 @@ trs80gp/Model 4. Utilities and CP/M Tools disk assembly can follow separately.
 The two System Disks require their own platform boot and BIOS implementations.
 All membership or layout changes require discussion with the maintainer.
 
+The five host downloads and their archive structure are specified in
+[BetterCP/M 1.0 release packages](1.0-RELEASE-PACKAGES.md). That layout does not
+change the disk membership below.
+
 ## System Disk
 
 - README.TXT: introductory ASCII text in user 0, from `src/distribution/README.TXT`.
@@ -45,6 +49,30 @@ All membership or layout changes require discussion with the maintainer.
 
 ## Utilities Disk
 
+- CRCKSUM.COM: CRCKSUM 1.0 revision 006 development candidate, supporting historical
+  CRCK, corrected CRCK5, CHEK, CRC-32, SUM8, SUM16, KERM6 and KERM12, native and legacy saved lists, and
+  local verification against native lists and original SIG/M catalogs.
+  Newly generated candidate images include CRCKSUM with its prepared native source
+  and provenance in the shared source package. Packaged execution and native
+  cross-build parity pass on cpmsim. The maintainer waived the remaining Model 4
+  validation for PR finalization; full Model 4 and paired release acceptance
+  are not asserted.
+  See [CRC implementation notes](../engineering/CRC-Implementation.md).
+
+- MD5SUM.COM: MD5SUM 1.0 revision 002 development candidate. Conventional
+  md5sum lists, stored-record byte coverage, master/local output and local
+  verification. Native/cross parity and focused packaged cpmsim checks pass;
+  The maintainer waived/deferred remaining Model 4 validation; paired release
+  acceptance is not asserted. Prepared native
+  source and build provenance accompany the shared corresponding-source archive.
+  See [implementation notes](../engineering/MD5SUM-Implementation.md).
+- PATCH.COM: PATCH 1.0 revision 001 development candidate, supplied with
+  PATCH.TXT on the NOAH companion Utilities volume. The primary 332K Utilities
+  disk remains unchanged at 2K free. Native/cross parity and cpmsim checks pass;
+  Model 4 qualification and paired release acceptance remain pending. Prepared
+  native source and build provenance travel in the Utilities host package.
+  See [implementation notes](../engineering/PATCH-Implementation.md).
+
 - SEARCH.COM: SEARCH 1.0 revision 001, read-only TEXT/HEX content search with
   shared DU selectors, bounded excerpts, forward paging and complete accounting.
   Included in newly generated candidate images; [paired Utilities acceptance](../engineering/SEARCH%20Utilities%20Acceptance.md)
@@ -56,7 +84,8 @@ All membership or layout changes require discussion with the maintainer.
   display, summary-only reporting and forward-only pagination; [engineering
   specification](../engineering/COMPARE%20Specification.md). Development implementation
   exists; Model 4 qualification and final Utilities Disk acceptance are pending.
-  The development executable is not yet included in release disk images.
+  Candidate companion disks include COMPARE.COM and COMPARE.TXT. Remaining Model 4
+  validation is waived for finalization and deferred to a combined manual campaign.
 
 - XSUB.COM
 - DUMP.COM: enhanced read-only hex/ASCII viewer with `/P`, required `/40`, `/FROM=`, exact DU access, interactive Find/Go To, sealed DRI `/BARE`, and visually styled `/VER`; [engineering specification](../engineering/DUMP%20Specification.md).
@@ -135,17 +164,26 @@ All membership or layout changes require discussion with the maintainer.
 `tools/build_utilities_disk.py --build` assembles the currently implemented
 selected components: DUMP.COM, DDT.COM, XSUB.COM and its required BATCHIO.RSX,
 SQ.COM, USQ.COM, CR.COM, UNCR.COM, LZH.COM and UNLZH.COM, plus the selected
-ZSM4/LINK binaries and their three notice files (15 files total). DDT is the owned adaptation, not the historical reference; its Model 4 screen/input campaign passes on disposable current-system media. DDT also passes [Utilities release acceptance](../engineering/DDT%20Utilities%20Release%20Acceptance.md) from B: beside normal System A: on both platforms. `--ddt-acceptance REPORT` binds that component verdict to the exact artifact and image hashes; it does not promote the whole disk. The builder verifies
+ZSM4/LINK binaries and their three notice files, the DASM/DSYM/DLINK set and
+its two notice files, TED and its two notice files, SEARCH.COM and CRCKSUM.COM
+(26 files total). CRCKSUM occupies 22K and MD5SUM 18K of allocation on the
+332K candidate, which has 2K free. DDT is the owned adaptation, not the historical reference; its Model 4 screen/input campaign passes on disposable current-system media. DDT also passes [Utilities release acceptance](../engineering/DDT%20Utilities%20Release%20Acceptance.md) from B: beside normal System A: on both platforms. `--ddt-acceptance REPORT` binds that component verdict to the exact artifact and image hashes; it does not promote the whole disk. The builder verifies
 file readback and the filesystem, and produces a 332K raw cpmsim image and an
 80T DS 800K data DMK for Model 4. Reports explicitly list pending selections;
 these are provisional daily media, not a fully qualified Utilities release.
 No third-party program is silently selected or substituted.
 
+`--crc-acceptance REPORT` binds CRCKSUM acceptance to the exact paired images and
+prepared native-source identity. Without that evidence, CRCKSUM is explicitly
+pending; including its binary does not claim platform or whole-disk acceptance.
+
 The tracked `tools/bcpm` launcher mirrors the maintainer's personal script.
 After its ordinary System Disk build, `bcpm build` creates these Utilities media
-and mounts the raw image as cpmsim B:. `bcpm z` also selects Utilities as B:;
-`bcpm t` selects the native Utilities image as B: and the existing development
-build disk as C:. Neither automatically mounts the conformance suite. Replacing
+and mounts the raw image as cpmsim B:. `bcpm z` selects primary Utilities as B:
+and the historical BetterCPM-NOAH companion image as C:. `bcpm t` selects the
+corresponding native images as B: and C:, with development/work media as D:.
+The companion contains NOAH, PATCH and COMPARE; CRCKSUM and MD5SUM are on B:.
+Neither automatically mounts the conformance suite. Replacing
 an existing cpmsim B: symlink preserves its old target; a regular disk file is
 never overwritten. Existing emulator sessions must be closed before rebuilding
 or switching mounted media.
@@ -299,3 +337,11 @@ implemented tool set to the packaged artifacts; the complete Utilities release
 remains provisional. DLINK preserves the BIOS vector and redirects only the two
 verified exit operands in LINK's loaded memory copy; LINK.COM on disk is unchanged. ZSM4 and Digital Research LINK retain their third-party identities
 and versions.
+
+## Required cpmsim host dependency
+
+The z80pack release requires the patched runtime and helpers described in
+[the installation instructions](../platform/CPMSIM-INSTALLATION.md). Include the
+pinned source lock, complete patch series, reconstruction builder, instructions
+and license in the host package. Bind any shipped executable to its
+`environment.json` and corresponding source; stock cpmsim is insufficient.

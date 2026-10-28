@@ -3283,7 +3283,8 @@
         "tools/rsx_container.py",
         "tools/shared_ui.py",
         "tools/system_layout.py",
-        "tools/utility_versions.py"
+        "tools/utility_versions.py",
+        "tools/utility_help.py"
       ],
       "identity_dependencies": [],
       "registry_fields": [
@@ -4810,7 +4811,8 @@
         "tools/component_identity.py",
         "tools/component_inputs.py",
         "tools/component_registry.py",
-        "tools/utility_versions.py"
+        "tools/utility_versions.py",
+        "tools/utility_help.py"
       ],
       "modes": [
         "cross",
@@ -4853,7 +4855,8 @@
         "tools/component_identity.py",
         "tools/component_inputs.py",
         "tools/component_registry.py",
-        "tools/utility_versions.py"
+        "tools/utility_versions.py",
+        "tools/utility_help.py"
       ],
       "modes": [
         "cross",
@@ -5001,7 +5004,8 @@
         "tools/component_inputs.py",
         "tools/component_registry.py",
         "tools/shared_ui.py",
-        "tools/utility_versions.py"
+        "tools/utility_versions.py",
+        "tools/utility_help.py"
       ],
       "native_files": [],
       "registry_fields": [
@@ -5054,7 +5058,8 @@
       ],
       "native_files": [
         "tools/build_native_compare.py",
-        "tools/build_native_trs80.py"
+        "tools/build_native_trs80.py",
+        "tools/test_z80pack_sysgen_install.py"
       ]
     },
     "utility:SEARCH": {
@@ -5109,6 +5114,177 @@
       ],
       "native_files": [
         "tools/build_native_search.py",
+        "tools/build_native_trs80.py"
+      ]
+    },
+    "utility:CRCKSUM": {
+      "status": "tracked-conservative",
+      "target": "z80pack",
+      "targets": [
+        "z80pack",
+        "trs80gp"
+      ],
+      "profile": "default",
+      "build_mode": "cross",
+      "configuration": {
+        "origin": 259
+      },
+      "files": [
+        "src/cpx/rcp.mac",
+        "src/system/layout.inc",
+        "src/utilities/common/attrselect.inc",
+        "src/utilities/common/duselect.inc",
+        "src/utilities/common/filespec.inc",
+        "src/utilities/common/operandqual.inc",
+        "src/utilities/common/rcpselect.inc",
+        "src/utilities/crc.mac",
+        "src/utilities/crc/algorithms.inc",
+        "src/utilities/crc/command.inc",
+        "src/utilities/crc/list-parser.inc",
+        "src/utilities/crc/lists.inc",
+        "src/utilities/crc/output.inc",
+        "src/utilities/crc/render.inc",
+        "src/utilities/crc/support.inc",
+        "src/utilities/crc/traverse.inc",
+        "tools/build_ccp.py",
+        "tools/build_crc.py",
+        "tools/build_profiles.py",
+        "tools/checked_build_contract.py",
+        "tools/checked_carriers.py",
+        "tools/component_build.py",
+        "tools/component_development.py",
+        "tools/component_identity.py",
+        "tools/component_inputs.py",
+        "tools/component_registry.py",
+        "tools/rsx_container.py",
+        "tools/search_source.py",
+        "tools/system_layout.py",
+        "tools/utility_versions.py"
+      ],
+      "identity_dependencies": [],
+      "registry_fields": [
+        "display_format",
+        "description"
+      ],
+      "modes": [
+        "cross",
+        "native"
+      ],
+      "native_files": [
+        "tools/build_native_crc.py",
+        "tools/build_native_trs80.py"
+      ]
+    },
+    "utility:MD5SUM": {
+      "status": "tracked-conservative",
+      "target": "z80pack",
+      "targets": [
+        "z80pack",
+        "trs80gp"
+      ],
+      "profile": "default",
+      "build_mode": "cross",
+      "configuration": {
+        "origin": 259
+      },
+      "files": [
+        "src/cpx/rcp.mac",
+        "src/system/layout.inc",
+        "src/utilities/common/attrselect.inc",
+        "src/utilities/common/duselect.inc",
+        "src/utilities/common/filespec.inc",
+        "src/utilities/common/operandqual.inc",
+        "src/utilities/common/rcpselect.inc",
+        "src/utilities/crc/command.inc",
+        "src/utilities/crc/lists.inc",
+        "src/utilities/crc/output.inc",
+        "src/utilities/crc/support.inc",
+        "src/utilities/crc/traverse.inc",
+        "src/utilities/md5sum.mac",
+        "src/utilities/md5sum/algorithms.inc",
+        "src/utilities/md5sum/candidates.inc",
+        "src/utilities/md5sum/command.inc",
+        "src/utilities/md5sum/list-parser.inc",
+        "src/utilities/md5sum/render.inc",
+        "tools/build_ccp.py",
+        "tools/build_md5sum.py",
+        "tools/build_profiles.py",
+        "tools/checked_build_contract.py",
+        "tools/checked_carriers.py",
+        "tools/component_build.py",
+        "tools/component_development.py",
+        "tools/component_identity.py",
+        "tools/component_inputs.py",
+        "tools/component_registry.py",
+        "tools/rsx_container.py",
+        "tools/search_source.py",
+        "tools/system_layout.py",
+        "tools/utility_versions.py",
+        "src/utilities/md5sum/reference.inc"
+      ],
+      "identity_dependencies": [],
+      "registry_fields": [
+        "display_format",
+        "description"
+      ],
+      "modes": [
+        "cross",
+        "native"
+      ],
+      "native_files": [
+        "tools/build_native_md5sum.py",
+        "tools/build_native_trs80.py"
+      ]
+    },
+    "utility:PATCH": {
+      "status": "tracked-conservative",
+      "target": "z80pack",
+      "targets": [
+        "z80pack",
+        "trs80gp"
+      ],
+      "profile": "default",
+      "build_mode": "cross",
+      "configuration": {
+        "origin": 259
+      },
+      "files": [
+        "src/utilities/compare.mac",
+        "src/utilities/common/compareparse.inc",
+        "src/utilities/common/compareio.inc",
+        "src/utilities/common/duselect.inc",
+        "src/utilities/common/filespec.inc",
+        "src/utilities/md5sum/algorithms.inc",
+        "src/utilities/patch.mac",
+        "src/utilities/patch/command.inc",
+        "src/utilities/patch/engine.inc",
+        "src/utilities/patch/scan.inc",
+        "src/utilities/patch/transaction.inc",
+        "tools/build_ccp.py",
+        "tools/build_profiles.py",
+        "tools/checked_build_contract.py",
+        "tools/checked_carriers.py",
+        "tools/component_build.py",
+        "tools/component_development.py",
+        "tools/component_identity.py",
+        "tools/component_inputs.py",
+        "tools/component_registry.py",
+        "tools/rsx_container.py",
+        "tools/system_layout.py",
+        "tools/utility_versions.py",
+        "tools/build_patch.py"
+      ],
+      "identity_dependencies": [],
+      "registry_fields": [
+        "display_format",
+        "description"
+      ],
+      "modes": [
+        "cross",
+        "native"
+      ],
+      "native_files": [
+        "tools/build_native_patch.py",
         "tools/build_native_trs80.py"
       ]
     }

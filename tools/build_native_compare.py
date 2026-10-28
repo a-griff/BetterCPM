@@ -43,39 +43,29 @@ def main() -> None:
         for drive in "bcd":
             blank(args.disk_template, disks / f"drive{drive}.dsk")
         source = work / "COMPARE.MAC"
-        from build_compare import expanded_source
-        import re
-        text = expanded_source()
-        text = re.sub(r'(?m)^(?:(\w+:)\s*)? +DS +([0-9]+) *$',
-                      r'\1\n        REPT \2\n        DB 0FFH\n        ENDM', text)
-        expanded = work / 'expanded.mac'
-        expanded.write_text(text, encoding='ascii')
-        source.write_bytes(cpm_text(expanded))
+        source.write_bytes((ROOT/'build/utilities/COMPARE-NATIVE.MAC').read_bytes())
+        first=bytes(range(256))*2
+        second=bytearray(first);second[0]^=1;second[127]^=1
+        for name,data in [('A.BIN',first),('B.BIN',bytes(second[:384]))]:
+            fixture=work/name;fixture.write_bytes(data)
+            run('cpmcp','-f','ibm-3740',str(disks/'driveb.dsk'),str(fixture),'0:'+name)
         run("cpmcp", "-f", "ibm-3740", str(disks / "drivec.dsk"),
             str(source), "0:COMPARE.MAC")
         for tool in ("ZSM4.COM", "LINK.COM"):
             run("cpmcp", "-f", "ibm-3740", str(disks / "drived.dsk"),
                 str(args.tools / tool), f"0:{tool}")
-        commands = f'''set timeout 60
-spawn {args.cpmsim} -z -d {disks}
-expect "A>"
-send -- "B:\r"
-expect "B>"
-send -- "D:ZSM4 B:COMPARE=C:COMPARE\r"
-expect -re {{Errors: +0}}
-expect "B>"
-send -- "D:LINK COMPARE\\[A\\]\r"
-expect "CODE SIZE"
-expect "B>"
-send "\034"
-expect eof
-'''
-        result = run("expect", "-c", commands, check=False)
-        transcript = result.stdout + result.stderr
-        (BUILD / "NATIVE-COMPARE-BUILD.LOG").write_text(transcript,
-                                                      encoding="utf-8")
-        if result.returncode or "Errors: 0" not in transcript or "CODE SIZE" not in transcript:
-            raise SystemExit(f"native COMPARE build failed\n{transcript}")
+        from test_z80pack_sysgen_install import session
+        transcript=session(args.cpmsim,disks,[
+            (b'B:\r',b'B>',15),
+            (b'D:ZSM4 B:COMPARE=C:COMPARE\r',b'Errors: 0',30),
+            (b'',b'B>',15),
+            (b'D:LINK COMPARE[A]\r',b'CODE SIZE',30),
+            (b'',b'B>',15),
+            (b'COMPARE A.BIN B.BIN /SUMMARY\r',b'BYTE MISMATCHES: 2',15),
+            (b'',b'ADDITIONAL IN FILE 1: 128',15),
+            (b'',b'FILES DIFFER',15),
+            (b'',b'B>',15),
+        ],BUILD/'NATIVE-COMPARE-BUILD.LOG',initial_prompt=b'A>')
         native_com = work / "COMPARE.COM"
         run("cpmcp", "-f", "ibm-3740", str(disks / "driveb.dsk"),
             "0:COMPARE.COM", str(native_com))

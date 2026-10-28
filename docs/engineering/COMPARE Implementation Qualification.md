@@ -1,6 +1,6 @@
 # COMPARE implementation and qualification
 
-Status: development candidate, COMPARE 1.0 revision 001-dev. Component qualification
+Status: development candidate, COMPARE 1.0 revision 002-dev. Component qualification
 and final Utilities Disk acceptance are incomplete. Implementation was authorized
 by the maintainer after settling the review points in the engineering specification.
 
@@ -8,7 +8,7 @@ The utility is implemented in native Z80 assembly. It uses the existing single-D
 lexer and exact filename validator, two 128-byte record caches, 32-bit byte offsets
 and statistics, and ordinary CP/M 2.2 BDOS services. It has no monitor or screen
 backend dependency. The normal utility collection builder includes COMPARE;
-release disk builders deliberately do not include it yet.
+candidate disk builders include COMPARE.COM and COMPARE.TXT on the NOAH companion volume.
 
 ## Evidence
 
@@ -51,3 +51,37 @@ Focused cpmsim runtime checks and fixture coverage are not a substitute for the
 complete platform qualification matrix in §9. In particular, Model 4 execution,
 platform console interruption behavior, and final disk packaging/acceptance must
 be completed before release promotion.
+
+## Candidate integration and maintainer disposition — 2026-10-28
+
+At this integration step, COMPARE.COM was still revision 001; revision 002 is recorded below. Prepared native source and
+selected-input provenance now accompany both Utilities formats. Stock CP/M native
+assembly/linking and actual comparison execution pass, as do all 87 compiled
+fixtures. Exact packaged execution from C0: passes cross-user comparison, narrow
+ranges, pager interruption and whole-disk immutability. Independent inventory,
+allocation, complete file readback, source closure and receipt-refusal checks pass.
+The primary disk is unchanged; COMPARE shares the NOAH companion with PATCH.
+
+The maintainer waived remaining Model 4 validation for finalization. This is a
+deferral for a later combined manual campaign, not a Model 4 PASS. Retain these
+manual checks: native ZSM4/LINK parity; exact packaged C0: execution; cross-user
+summary (two mismatches, 128 additional bytes); unaligned /SIDE /40 range display;
+paging Space/Enter and Ctrl-C/Q/Esc display-stop with complete totals; nonpaged
+Ctrl-C cancellation; caller-state restoration and unchanged source/media bytes.
+No paired runtime acceptance receipt or release baseline is promoted.
+
+## Help layout correction — 2026-10-28
+
+Revision 002 replaces the historical help block with the common utility layout:
+metadata-owned identity, short corner, purpose/usage, aligned options and final
+HELP/VER entries. It fits 23 lines and 79 columns. The documented COMPARE query
+precedence is unchanged. The existing manual remains the source for full rules.
+
+Native execution also exposed an invalid accumulator-return assumption after
+BDOS function 35. Size comes from the FCB; the undefined accumulator is no longer
+used to diagnose failure. The native runner now uses the checked PTY session
+helper and requires the actual comparison summary, failing on timeout.
+
+Current build, native parity, 88 compiled scenarios and packaged cpmsim evidence
+are recorded in [Utility Help Layout Qualification.md](Utility%20Help%20Layout%20Qualification.md).
+The standing Model 4 deferral remains in effect.

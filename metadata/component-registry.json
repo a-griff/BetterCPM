@@ -455,7 +455,7 @@
       "builders": [
         "tools/build_dump.py"
       ],
-      "revision": 6,
+      "revision": 7,
       "api_version": null,
       "tracking": "existing",
       "dependency_status": "roots-only; selected dependency closure pending",
@@ -577,7 +577,7 @@
       "builders": [
         "tools/build_noah.py"
       ],
-      "revision": 17,
+      "revision": 19,
       "api_version": null,
       "tracking": "existing",
       "dependency_status": "roots-only; selected dependency closure pending",
@@ -881,7 +881,7 @@
       "builders": [
         "tools/build_dasm.py"
       ],
-      "revision": 1,
+      "revision": 2,
       "api_version": null,
       "tracking": "initial",
       "dependency_status": "tracked-conservative",
@@ -898,7 +898,7 @@
       "builders": [
         "tools/build_dsym.py"
       ],
-      "revision": 1,
+      "revision": 2,
       "api_version": null,
       "tracking": "initial",
       "dependency_status": "tracked-conservative",
@@ -947,7 +947,7 @@
       "builders": [
         "tools/build_ted.py"
       ],
-      "revision": 1,
+      "revision": 2,
       "api_version": null,
       "tracking": "initial",
       "dependency_status": "tracked-conservative",
@@ -967,7 +967,7 @@
       "builders": [
         "tools/build_compare.py"
       ],
-      "revision": 1,
+      "revision": 2,
       "api_version": null,
       "tracking": "initial",
       "dependency_status": "explicit selected dependency closure",
@@ -995,6 +995,75 @@
       "dependency_status": "tracked-conservative; shared FCB builder extracted from RCP",
       "display_format": "numeric",
       "description": "File Content Search"
+    },
+    "utility:CRCKSUM": {
+      "kind": "utility",
+      "version": "1.0",
+      "placement": "Utilities",
+      "roots": [
+        "src/utilities/crc.mac",
+        "src/utilities/crc/algorithms.inc",
+        "src/utilities/crc/command.inc",
+        "src/utilities/crc/list-parser.inc",
+        "src/utilities/crc/lists.inc",
+        "src/utilities/crc/output.inc",
+        "src/utilities/crc/render.inc",
+        "src/utilities/crc/support.inc",
+        "src/utilities/crc/traverse.inc"
+      ],
+      "builders": [
+        "tools/build_crc.py"
+      ],
+      "revision": 6,
+      "api_version": null,
+      "tracking": "initial",
+      "dependency_status": "tracked-conservative; shared DU/filespec/attribute parser and FCB builder",
+      "display_format": "numeric",
+      "description": "File Integrity Checking"
+    },
+    "utility:MD5SUM": {
+      "kind": "utility",
+      "version": "1.0",
+      "placement": "Utilities",
+      "roots": [
+        "src/utilities/md5sum.mac",
+        "src/utilities/md5sum/algorithms.inc",
+        "src/utilities/md5sum/candidates.inc",
+        "src/utilities/md5sum/command.inc",
+        "src/utilities/md5sum/list-parser.inc",
+        "src/utilities/md5sum/render.inc",
+        "src/utilities/md5sum/reference.inc"
+      ],
+      "builders": [
+        "tools/build_md5sum.py"
+      ],
+      "revision": 2,
+      "api_version": null,
+      "tracking": "initial",
+      "dependency_status": "tracked-conservative; shared CRCKSUM file engine and DU parser",
+      "display_format": "numeric",
+      "description": "MD5 File Digests"
+    },
+    "utility:PATCH": {
+      "version": "1.0",
+      "api_version": null,
+      "revision": 1,
+      "tracking": "initial",
+      "roots": [
+        "src/utilities/patch.mac",
+        "src/utilities/patch/command.inc",
+        "src/utilities/patch/engine.inc",
+        "src/utilities/patch/scan.inc",
+        "src/utilities/patch/transaction.inc"
+      ],
+      "builders": [
+        "tools/build_patch.py"
+      ],
+      "dependency_status": "tracked-conservative; shared DU, file access, arithmetic and MD5 fingerprint routines",
+      "kind": "utility",
+      "placement": "Utilities",
+      "display_format": "numeric",
+      "description": "Verified Binary Patching"
     }
   },
   "legacy_utility_order": [
@@ -1041,7 +1110,10 @@
     "DLINK",
     "TED",
     "COMPARE",
-    "SEARCH"
+    "SEARCH",
+    "CRCKSUM",
+    "MD5SUM",
+    "PATCH"
   ],
   "legacy_subsystem_rows": [
     {

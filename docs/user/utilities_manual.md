@@ -4,12 +4,18 @@ This manual explains how to use the programs supplied on the BetterCP/M Utilitie
 
 The Utilities Disk is being assembled separately from the System Disk. This manual covers DUMP, the initial DDT debugger adaptation, the six standalone compression utilities SQ, USQ, CR, UNCR, LZH and UNLZH, TED, DASM with its DSYM/DLINK companions, and the original ZSM4/LINK development tools. Chapters for other utilities will be added as those programs are completed and selected for distribution.
 
-The CRC chapter records an approved design; CRC is not yet implemented or included in Utilities Disk images.
+CRCKSUM has a development implementation; CRCKSUM is included in newly built candidate Utilities images; the maintainer waived the remaining Model 4 validation for PR finalization; full Model 4 qualification and release acceptance are not asserted.
 
-The COMPARE chapter describes a development utility. COMPARE is not yet qualified
-or included in current Utilities Disk images. SEARCH 1.0 is included in newly
+The COMPARE chapter describes a development utility. COMPARE is included on the candidate NOAH companion disk. Remaining Model 4
+validation is deferred by the maintainer for a later manual campaign. SEARCH 1.0 is included in newly
 generated Utilities candidates and has passed paired-image acceptance on both BetterCP/M targets. Public release publication
 remains separate.
+
+MD5SUM has a development implementation in newly built Utilities candidates;
+The maintainer has waived and deferred the remaining Model 4 validation; full Model 4 qualification and paired release acceptance are not asserted.
+
+PATCH is included in newly built candidate NOAH companion disks. Its native/cross
+and cpmsim checks pass; Model 4 qualification and release acceptance remain pending.
 
 ## Contents
 
@@ -17,7 +23,9 @@ remains separate.
 - [NOAH archive utility](#noah-archive-utility)
 - [SEARCH file-content search](#search-file-content-search)
 - [COMPARE binary file comparison](#compare-binary-file-comparison)
-- [CRC file checksums and verification lists](#crc-file-checksums-and-verification-lists)
+- [CRCKSUM file checksums and verification lists](#crcksum-file-checksums-and-verification-lists)
+- [MD5SUM file digests and verification lists](#md5sum-file-digests-and-verification-lists)
+- [PATCH verified binary file patching](#patch-verified-binary-file-patching)
 - [DUMP hexadecimal file viewer](#dump-hexadecimal-file-viewer)
   - [Quick start](#quick-start)
   - [Command syntax and options](#command-syntax-and-options)
@@ -205,7 +213,8 @@ archives, or replace text.
 
 ## COMPARE binary file comparison
 
-**Development utility — qualification pending.** This chapter describes the
+**Development candidate — included on the NOAH companion disk.** Remaining Model 4
+validation is waived for finalization and deferred to a later manual campaign. This chapter describes the
 implemented interface. The [engineering specification](../engineering/COMPARE%20Specification.md)
 records the approved design decisions and narrow display layout.
 
@@ -223,8 +232,8 @@ COMPARE /SUMMARY OLD.COM NEW.COM
 COMPARE /FROM=0205H /FROM2=0208H /LEN=0100H /SIDE A.BIN B.BIN
 ```
 
-If the utility is on B0: and is not otherwise found by your command environment,
-use `B0:COMPARE`. Options may precede, separate or follow the filenames; option
+With primary Utilities in B: and the NOAH companion in C:, use `C0:COMPARE`
+if your command environment does not otherwise find it. Options may precede, separate or follow the filenames; option
 names are case-insensitive. Supply exactly two filenames. Each may have its own
 drive and user qualification. Omitted drive or user selections inherit those
 of the caller. Comparing a file with itself is allowed. Wildcards, drive/user
@@ -342,31 +351,31 @@ A file-open error identifies the affected file. A read failure prevents a
 completed comparison result; partial totals must not be treated as complete.
 Handled exits close opened files and restore the caller's drive and user area.
 
-## CRC file checksums and verification lists
+## CRCKSUM file checksums and verification lists
 
-**Design approved; implementation pending.** This entry describes the selected CRC 1.0 interface. CRC is not yet implemented or qualified, and this chapter does not claim that CRC.COM is present on the Utilities Disk. The [engineering specification](../engineering/CRC-Specification.md) is the controlling design.
+**CRCKSUM 1.0 development candidate.** The implementation and focused cpmsim checks are available; CRCKSUM is included in newly built candidate Utilities images; the maintainer waived the remaining Model 4 validation for PR finalization; full Model 4 qualification and release acceptance are not asserted. This chapter does not claim that CRCKSUM.COM is present on released Utilities Disk images. The [engineering specification](../engineering/CRC-Specification.md) is the controlling design.
 
-CRC answers two related questions: what check values identify these files, and do the files still agree with an earlier list? It calculates four values: the original CP/M CRCK calculation, corrected CRCK, CHEK and CRC-32. You can display them, save a list, or check a directory against a saved reference. No input file is altered.
+CRCKSUM answers two related questions: what check values identify these files, and do the files still agree with an earlier list? It calculates eight values: the original CP/M CRCK calculation, corrected CRCK, CHEK, CRC-32, SUM8, SUM16, KERM6 and KERM12. You can display them, save a list, or check a directory against a saved reference. No input file is altered.
 
-### Getting started with CRC
+### Getting started with CRCKSUM
 
 ```text
-CRC
-CRC B3:*.COM
-CRC B[1,3,4-5]:*.COM
-CRC A0:*.COM B3:*.TXT
-CRC /CHECK B3:
-CRC /CHECK B[1-3]:FILE.TXT
+CRCKSUM
+CRCKSUM B3:*.COM
+CRCKSUM B[1,3,4-5]:*.COM
+CRCKSUM A0:*.COM B3:*.TXT
+CRCKSUM /CHECK B3:
+CRCKSUM /CHECK B[1-3]:FILE.TXT
 ```
 
-With no filespec, CRC selects `*.*` in your current logged drive/user area. A bare DU such as `B3:` also means `*.*`. Extended DU lists and ranges follow the common BetterCP/M rules. Separate filespecs may select different files in different locations. Overlapping selections do not process a physical file twice.
+With no filespec, CRCKSUM selects `*.*` in your current logged drive/user area. A bare DU such as `B3:` also means `*.*`. Extended DU lists and ranges follow the common BetterCP/M rules. Separate filespecs may select different files in different locations. Overlapping selections do not process a physical file twice.
 
-If CRC is on the Utilities Disk in B0: and your command environment does not find it automatically, use `B0:CRC`. The location of CRC.COM does not determine the locations of the files it checks.
+If CRCKSUM is on the Utilities Disk in B0: and your command environment does not find it automatically, use `B0:CRCKSUM`. The location of CRCKSUM.COM does not determine the locations of the files it checks.
 
-### CRC options
+### CRCKSUM options
 
 ```text
-CRC [options] [filespec ...] [options]
+CRCKSUM [options] [filespec ...] [options]
 ```
 
 | Option | Effect |
@@ -375,6 +384,10 @@ CRC [options] [filespec ...] [options]
 | `/CRCK5` | Select corrected CRCK. |
 | `/CHEK` | Select CHEK-compatible CRC. |
 | `/CRC32` | Select CRC-32/ISO-HDLC, the common ZIP/Ethernet variant. |
+| `/SUM8` | Calculate the unsigned byte sum modulo 256. |
+| `/SUM16` | Calculate the unsigned byte sum modulo 65536. |
+| `/KERM6` | Calculate the Kermit type-1 six-bit checksum applied to the whole file. |
+| `/KERM12` | Calculate the Kermit type-2 twelve-bit checksum applied to the whole file. |
 | `/FILE=filespec` | Write one master list. A single destination DU may be supplied. |
 | `/LOCAL=filename` | Write an individual list in each selected DU. Supply a filename only. |
 | `/LEGACY` | Write historical CRCKLIST records and force historical CRCK alone. |
@@ -384,9 +397,9 @@ CRC [options] [filespec ...] [options]
 | `/HELP` | Display help without accessing files. |
 | `/VER` | Display the utility's version and revision without accessing files. |
 
-Option names are case-insensitive, and options may appear before, between or after filespecs. Without algorithm switches, calculation displays all four values. Supplying switches selects their combination: `/CRCK /CHEK` displays those two. Repeated identical switches are harmless. When a value option is repeated, every occurrence must be valid and the last value is used. `/HELP` takes precedence over `/VER`; either query suppresses ordinary command processing.
+Option names are case-insensitive, and options may appear before, between or after filespecs. Without algorithm switches, calculation displays all eight values. Supplying switches selects their combination: `/CRCK /CHEK` displays those two. Explicit algorithm switches also determine output order: `/SUM16 /CRCK /KERM6` puts those three columns in that order. Repeating a switch neither moves nor duplicates its column. This order also applies to the narrow display and verification reports. When a value option is repeated, every occurrence must be valid and the last value is used. `/HELP` takes precedence over `/VER`; either query suppresses ordinary command processing.
 
-`/LEGACY` always selects historical CRCK only. `/CRCK5`, `/CHEK` and `/CRC32` are ignored when `/LEGACY` is present, regardless of their order. You do not have to add `/CRCK` as well.
+`/LEGACY` always selects historical CRCK only. All other algorithm switches are ignored when `/LEGACY` is present, regardless of their order. You do not have to add `/CRCK` as well.
 
 Calculation/list generation and verification are separate operations. Do not combine `/CHECK` with `/FILE=` or `/LOCAL=`. `/FILE=` and `/LOCAL=` may be used together.
 
@@ -396,11 +409,34 @@ Names caused some confusion even during the CP/M years. SIG/M's CRC utility vers
 
 Use `/CRCK` for original SIG/M catalog and CRCKLIST values. CHEK is another 16-bit CRC calculation, also found in the CP/M library and RCPM tools. CRC-32 gives a 32-bit result. None of these values authenticates a file or establishes that it came from a trusted author; they are file-integrity checks.
 
-CRC includes every byte of each 128-byte CP/M logical record. Embedded Ctrl-Z bytes and padding at the end of the final record are included. Text line endings are not converted. `RECS` is the exact record count; multiply by 128 to obtain the byte count being checked. A host copy with stripped padding or translated line endings may therefore produce a different result.
+SUM8 adds the stored bytes modulo 256; SUM16 adds them modulo 65536. KERM6
+and KERM12 use Kermit's six-bit and twelve-bit checksum arithmetic across the
+whole file. KERM6 folds bits 6 and 7 of the sum into its low six bits; KERM12
+retains the low twelve bits. Results are numeric hexadecimal, not Kermit's
+printable packet encoding. No packet headers or data quoting are included.
+These values therefore do not represent an individual transfer packet's check.
+
+In the default layout, the four new fields follow CRC32 in the order SUM8, SUM16, KERM6, KERM12.
+They contain two, four, two and three hex digits respectively, right-aligned
+within fields wide enough for their headings. All eight algorithms are selected
+by default; for example, `CRCKSUM B3:*.COM /SUM8 /KERM12` displays just those two.
+`/LEGACY` continues to force only historical CRCK.
+
+CRCKSUM includes every byte of each 128-byte CP/M logical record. Embedded Ctrl-Z bytes and padding at the end of the final record are included. Text line endings are not converted. `RECS` is the exact record count; multiply by 128 to obtain the byte count being checked. A host copy with stripped padding or translated line endings may therefore produce a different result.
 
 ### Reading the CRC display and native lists
 
-The normal display uses a table like the native saved format. These two rows use actual values from SIG/M Volume 310:
+With all algorithms selected, the display and saved list use this layout
+(the example is `123456789` padded with 119 Ctrl-Z bytes):
+
+```text
+; BetterCP/M CRC list
+NAME     EXT  RECS  CRCK  CRCK5  CHEK  CRC32     SUM8  SUM16  KERM6  KERM12
+-------- ---  ----  ----  -----  ----  --------  ----  -----  -----  ------
+TEST     DAT     1  A687   5D45  E447  2F263492    F3   0DF3     36     DF3
+```
+
+The normal display uses a table like the native saved format. With `/CRCK /CRCK5 /CHEK /CRC32`, these two rows use actual values from SIG/M Volume 310:
 
 ```text
 ; BetterCP/M CRC list
@@ -419,10 +455,10 @@ The column header identifies the calculations; the dash runs establish their pos
 ### Saving master and local lists
 
 ```text
-CRC B3:*.COM /FILE=A0:MASTER.LST
-CRC B[1-3]: /LOCAL=CRC.LST
-CRC B[1-3]: /FILE=A0:MASTER.LST /LOCAL=CRC.LST
-CRC B3:*.COM /CRCK /CHEK /LOCAL=CRC.LST
+CRCKSUM B3:*.COM /FILE=A0:MASTER.LST
+CRCKSUM B[1-3]: /LOCAL=CRC.LST
+CRCKSUM B[1-3]: /FILE=A0:MASTER.LST /LOCAL=CRC.LST
+CRCKSUM B3:*.COM /CRCK /CHEK /LOCAL=CRC.LST
 ```
 
 The first command saves one master list in A0:. The second writes CRC.LST in each of B1, B2 and B3. The third does both in the same run, reading each input file once. The fourth writes only historical CRCK and CHEK values.
@@ -431,26 +467,29 @@ Each DU is handled as a section. Files are alphabetized by name, then extension.
 
 Saved sections do not record DU locations. Files with the same name in different DUs remain separate records. This makes local lists easy to move with their files, but a master list does not remember where each section originally lived. Keep that in mind when combining unrelated versions of the same filename.
 
-An unqualified `/FILE=` destination uses the DU you were logged into when CRC started. `/LOCAL=` takes only a filename because the destination is each target DU. A DU qualifier on `/LOCAL=` is an error and stops the command before files are processed. For example, use `/LOCAL=CRC.LST`, not `/LOCAL=A0:CRC.LST`.
+An unqualified `/FILE=` destination uses the DU you were logged into when CRCKSUM started. `/LOCAL=` takes only a filename because the destination is each target DU. A DU qualifier on `/LOCAL=` is an error and stops the command before files are processed. For example, use `/LOCAL=CRC.LST`, not `/LOCAL=A0:CRC.LST`.
 
-Output lists and temporary files are excluded from input selection. If master and local destinations name the same physical file, CRC writes that file once with the complete master contents; it does not attempt to keep a second local-only version under the same name.
+Output lists and temporary files are excluded from input selection. If master and local destinations name the same physical file, CRCKSUM writes that file once with the complete master contents; it does not attempt to keep a second local-only version under the same name.
 
-If a destination exists, CRC displays its full identity:
+If a destination exists, CRCKSUM displays its full identity:
 
 ```text
-B3:CRC.LST exists. Overwrite? (Y/n/a)
+B3:CRC.LST exists. Overwrite? (Y/n/a/?)
 ```
 
-Y or Enter replaces that list. N leaves it alone and continues other requested outputs. A authorizes this and subsequent list replacements for this run. Ctrl-C cancels. CRC stages output before replacing a completed list. A failed or cancelled operation does not deliberately install a partial list under the final name; any recovery failure identifies the files left behind. Check the final output totals to see which lists were completed, declined or failed.
+Type `?` for `Y Yes, N No, A All, ? Help`; the same file's question is
+then repeated. Help changes no files or choices. Enter still means Yes.
+
+Y or Enter replaces that list. N leaves it alone and continues other requested outputs. A authorizes this and subsequent list replacements for this run. Ctrl-C cancels. CRCKSUM stages output before replacing a completed list. A failed or cancelled operation does not deliberately install a partial list under the final name; any recovery failure identifies the files left behind. Check the final output totals to see which lists were completed, declined or failed.
 
 ### Writing a historical CRCKLIST
 
 ```text
-CRC B3:*.* /FILE=CRCKLIST.CRC /LEGACY
-CRC B[1-3]: /LOCAL=CRCKLIST.CRC /LEGACY
+CRCKSUM B3:*.* /FILE=CRCKLIST.CRC /LEGACY
+CRCKSUM B[1-3]: /LOCAL=CRCKLIST.CRC /LEGACY
 ```
 
-`/LEGACY` reproduces the original prefix, padded dotted filename, two TABs before `CRC =`, space-separated hexadecimal bytes and blank lines between entries:
+`/LEGACY` uses the historical layout for both console output and saved lists. It reproduces the original prefix, padded dotted filename, two TABs before `CRC =`, space-separated hexadecimal bytes and blank lines between entries:
 
 ```text
 --> FILE:  ZMD146  .LBR          CRC = 13 6B
@@ -463,14 +502,14 @@ TABs are expanded here for reading. Native headers, sizes and the other algorith
 ### Checking files against their local list
 
 ```text
-CRC /CHECK
-CRC /CHECK B3:FILE.TXT
-CRC /CHECK B[1-3]:*.COM
-CRC /CHECK=REFERENCE.LST B[1-3]:
-CRC /CHECK B3: /CRCK /CRC32
+CRCKSUM /CHECK
+CRCKSUM /CHECK B3:FILE.TXT
+CRCKSUM /CHECK B[1-3]:*.COM
+CRCKSUM /CHECK=REFERENCE.LST B[1-3]:
+CRCKSUM /CHECK B3: /CRCK /CRC32
 ```
 
-Every selected file is checked against one reference list in its own DU. The final example limits verification to recorded CRCK and CRC32 values. CRC does not fabricate values missing from a list: an entry containing neither selected algorithm is skipped and reported as such.
+Every selected file is checked against one reference list in its own DU. The final example limits verification to recorded CRCK and CRC32 values. CRCKSUM does not fabricate values missing from a list: an entry containing neither selected algorithm is skipped and reported as such.
 
 Bare `/CHECK` tries these names in order, independently in each target DU:
 
@@ -479,19 +518,19 @@ Bare `/CHECK` tries these names in order, independently in each target DU:
 3. `CRCKFILE.*`
 4. `-CATALOG.*`
 
-The first tier containing a candidate wins. If that tier contains several files, CRC reports ambiguity and asks you to select a name using `/CHECK=filename`. If none is found, it reports `No CRC list found` and continues to the next selected DU. It never searches your logged DU as a fallback. With no target operand, the logged DU is itself the target.
+The first tier containing a candidate wins. If that tier contains several files, CRCKSUM reports ambiguity and asks you to select a name using `/CHECK=filename`. If none is found, it reports `No CRC list found` and continues to the next selected DU. It never searches your logged DU as a fallback. With no target operand, the logged DU is itself the target.
 
 `/CHECK=REFERENCE.LST` means REFERENCE.LST in each target DU. It does not mean a single central reference for every target. A DU qualifier on `/CHECK=` is an explicit error and aborts the command before processing. To check a moved collection, place its reference beside its files and select that DU.
 
-CRC displays the reference it selected. Once selected, a bad format, malformed list, absent checksum information or mismatch does not cause CRC to try a different reference. A catalog without checksum entries is not a usable reference. To use another file, name it explicitly.
+CRCKSUM displays the reference it selected. Once selected, a bad format, malformed list, absent checksum information or mismatch does not cause CRCKSUM to try a different reference. A catalog without checksum entries is not a usable reference. To use another file, name it explicitly.
 
-CRC recognizes its native tables, historical CRCKLIST/CRCKFILE records, and original SIG/M catalogs containing CRC columns. Historical `CRC =` fields and original SIG/M catalog CRCs mean historical CRCK. Some early SIG/M catalogs contain only descriptions: their separate CRCKLIST or CRCKFILE is the verification reference. Reading a historical list does not require `/LEGACY`.
+CRCKSUM recognizes its native tables, historical CRCKLIST/CRCKFILE records, and original SIG/M catalogs containing CRC columns. Historical `CRC =` fields and original SIG/M catalog CRCs mean historical CRCK. Some early SIG/M catalogs contain only descriptions: their separate CRCKLIST or CRCKFILE is the verification reference. Reading a historical list does not require `/LEGACY`.
 
 ### Sizes, repeated names and verification results
 
 Size is checked first where available. Native RECS is exact. SIG/M whole-K sizes are rounded: a 3K entry permits 17 through 24 records, rather than requiring exactly 24. An incompatible size rejects that entry. A compatible size, or a list without sizes, always proceeds to checksum comparison.
 
-A master can contain several entries for the same filename. CRC compares the target file with the size-compatible candidates. A file matches only if every selected value actually recorded in one candidate agrees. It never combines values from different entries to manufacture a match. A complete matching candidate verifies the file; differing alternatives are identified separately. The report identifies which algorithms were actually checked.
+A master can contain several entries for the same filename. CRCKSUM compares the target file with the size-compatible candidates. A file matches only if every selected value actually recorded in one candidate agrees. It never combines values from different entries to manufacture a match. A complete matching candidate verifies the file; differing alternatives are identified separately. The report identifies which algorithms were actually checked.
 
 Wildcard checking reports both selected files absent from the reference and selected reference entries whose files are missing. The reference file itself is excluded from wildcard targets. Files outside your requested pattern do not count as failures.
 
@@ -504,11 +543,359 @@ Expect separate reports for:
 - **SKIPPED:** no selected algorithm is recorded for the applicable entry.
 - **READ ERROR / LIST ERROR:** verification could not be completed reliably.
 
-Per-DU and overall totals distinguish files from entries and show missing references and other incomplete jobs. Zero verified files is not an all-clear result. Individual matches can be reported even when another file or malformed entry prevents overall success.
+One compact final summary covers all selected DUs. For example:
 
-Ctrl-C cancels and reports an incomplete operation. Completed independent output lists remain, but uncommitted output is discarded. CRC restores your original drive/user selection before returning.
+```text
+1 file calculated; 1 list written.
+12 verified; 1 failed; 2 missing; incomplete.
+```
+
+Zero counters are omitted. File-specific errors remain beside the affected file. A successful check ends with a summary such as `1 verified.` A check with no verified files reports `No files verified; incomplete.` (with any nonzero error counts included). Cancellation ends with `; cancelled.` Individual matches can still appear when another file or malformed entry makes the overall job incomplete. No per-DU counter block or duplicate total follows the checksum rows.
+
+Ctrl-C cancels and reports an incomplete operation. Completed independent output lists remain, but uncommitted output is discarded. CRCKSUM restores your original drive/user selection before returning.
+
+## MD5SUM file digests and verification lists
+
+**MD5SUM 1.0 development candidate.** MD5SUM is included in newly built candidate Utilities images. Focused native-build and cpmsim checks pass; the maintainer has waived and deferred the remaining Model 4 validation; full Model 4 qualification and paired release acceptance are not asserted. This is not a released-disk qualification claim. The [engineering specification](../engineering/MD5SUM-Specification.md) controls the design.
+
+MD5SUM calculates one MD5 digest for each selected file. Save the results, and you can later check whether the files still agree with that list. Its selection, master/local output, overwrite and checking behavior follows CRCKSUM. There is only one algorithm and one saved-list format.
+
+### Getting started with MD5SUM
+
+```text
+MD5SUM
+MD5SUM B3:*.COM
+MD5SUM B[1,3,4-5]:*.COM C7:*.TXT
+MD5SUM B3: /LOCAL=MD5SUM.LST
+MD5SUM /CHECK B3:
+MD5SUM /CHECK B[1-3]:FILE.TXT
+```
+
+Without a filespec, MD5SUM selects `*.*` in your current logged DU. A bare DU also means all files there. Overlapping selections do not hash the same physical file twice. Separate operands establish first-encounter DU order; bracketed selectors follow the common canonical DU order. Files within a DU are alphabetized by name and extension.
+
+If your command environment does not find the executable automatically, give its location, for example `B0:MD5SUM`. That does not change the target DU.
+
+### MD5SUM options
+
+```text
+MD5SUM [options] [filespec ...] [options]
+```
+
+| Option | Effect |
+| --- | --- |
+| `/FILE=filespec` | Write one master list; an explicit single destination DU is allowed. |
+| `/LOCAL=filename` | Write a separate list in each target DU; supply a filename only. |
+| `/CHECK` | Check against MD5SUM.LST in each target DU. |
+| `/CHECK=filename` | Check against this exact list name in each target DU; supply a filename only. |
+| `/40` | Fit console results and messages within 40 columns; saved lists are unchanged. |
+| `/HELP` | Display help without file access. |
+| `/VER` | Display the utility's identity without file access. |
+
+Options are case-insensitive and may appear before, between or after filespecs. Repeated value options must all be valid; the last value is used. A later bare CHECK does not erase an explicit CHECK filename. HELP takes precedence over VER, and either query ignores ordinary operands and options.
+
+FILE and LOCAL may be combined. CHECK is a separate operation and cannot be combined with either. There are no algorithm-selection switches or LEGACY mode.
+
+### What the digest covers
+
+MD5SUM includes every byte of every stored 128-byte logical record. Embedded Ctrl-Z, high-bit bytes and final-record padding all count. No text conversion takes place. Files larger than 64 KiB are processed as a stream.
+
+A host MD5 program gives the same answer for exactly the same bytes. If a transfer strips CP/M padding or changes line endings, it changes the file being hashed. Keep the complete stored bytes when comparing a CP/M digest with a host digest. Accepting a text-mode entry in a list does not change this rule.
+
+MD5 is useful for identifying files and detecting accidental changes. It does not establish authorship or protect against deliberately constructed collisions.
+
+### Reading and saving the results
+
+Normal calculation output and saved entries use conventional md5sum notation:
+
+```text
+b42a83d49df3489b2324811d5ed28d76 *TEST.DAT
+```
+
+This example is the digest of `123456789` followed by 119 Ctrl-Z bytes, one complete logical record. The digest has 32 lowercase hexadecimal digits. One space and an asterisk separate it from the filename. The star identifies binary input; it is not a wildcard. Names are uppercase, with an ordinary dot before the extension. Extensionless names have no trailing dot.
+
+There are no table headings, record counts, DU addresses or blank lines between groups in saved lists. MD5SUM accepts both the starred form and the conventional two-space form:
+
+```text
+b42a83d49df3489b2324811d5ed28d76  TEST.DAT
+```
+
+Both forms check the same complete stored file. Uppercase digest letters and lowercase filename letters are accepted too. Lists may have CRLF or LF endings and blank lines. Tagged output such as `MD5 (TEST.DAT) = ...`, host paths, escaped filenames and other algorithms are not accepted; unsupported or malformed entries are reported, not guessed.
+
+The console identifies the current DU and ends with a compact summary. Those messages are not saved in the list. Use FILE or LOCAL to make a list rather than capturing the entire console display. With `/40`, the console puts the filename on one line and the intact digest on the next. Saved entries keep their conventional single-line form.
+
+### Master and local lists
+
+```text
+MD5SUM B3:*.COM /FILE=A0:MASTER.LST
+MD5SUM B[1-3]: /LOCAL=MD5SUM.LST
+MD5SUM B[1-3]: /FILE=A0:MASTER.LST /LOCAL=MD5SUM.LST
+```
+
+The first command writes one master in A0:. The second writes MD5SUM.LST separately in B1, B2 and B3. The third does both, reading each selected input only once. Without an explicit DU, FILE writes in the DU you were logged into when MD5SUM started.
+
+A master is the uninterrupted concatenation of the local entry streams. It contains no group headers or source locations. Files sharing a name across DUs remain separate entries. A local list can move with its files; a master does not remember which original DU held a particular version.
+
+LOCAL takes only a name because each target DU supplies its location. For example, use `/LOCAL=MD5SUM.LST`, not `/LOCAL=B3:MD5SUM.LST`. A DU qualifier is an error and stops the command before processing. Output lists and transaction files are excluded from input selection. If FILE and LOCAL resolve to the same physical file, it is written once with the complete master contents.
+
+Before replacing a list, MD5SUM asks:
+
+```text
+B3:MD5SUM.LST exists. Overwrite? (Y/n/a/?)
+```
+
+Type `?` for `Y Yes, N No, A All, ? Help`; the same file's question is
+then repeated. Help changes no files or choices. Enter still means Yes.
+
+Y or Enter replaces this destination. N leaves it alone and continues other outputs. A authorizes this and later replacements in this run. Ctrl-C cancels. Output is staged before replacing a completed list. Handled failures or cancellation discard uncommitted output; recovery failures identify any files left behind. Completed independent local lists remain available even if another output fails.
+
+### Checking against a local list
+
+```text
+MD5SUM /CHECK
+MD5SUM /CHECK B3:FILE.TXT
+MD5SUM /CHECK B[1-3]:*.COM
+MD5SUM /CHECK=REF.LST B[1-3]:
+```
+
+Bare CHECK looks for MD5SUM.LST in each target DU. It does not search other names or fall back to your logged DU. If no list is found, MD5SUM reports it and continues to the next selected DU. With no target operand, your logged DU is itself the target.
+
+CHECK=REF.LST selects that exact filename independently in each target DU. It does not select a central reference for all targets. A DU qualifier, such as `/CHECK=A0:REF.LST`, is an error. Place a reference beside the files it describes and select that location.
+
+The target filespec limits both existing files and reference names being checked. MD5SUM reports selected files absent from the reference and selected reference names whose files are missing. The reference itself is excluded from wildcard targets. Unselected filenames do not become failures merely because they occur elsewhere in the list. A malformed list still prevents an overall successful check.
+
+Conventional MD5 entries contain no file size, so there is no size-only preliminary comparison. MD5SUM calculates and compares the digest. If a master contains several digests for the same name, one matching entry verifies the file; differing alternatives are identified separately. No second list is consulted for precedence. You remain responsible for organizing unrelated files that share a name.
+
+Expect MATCH, MD5 MISMATCH, FILE NOT FOUND, FILE NOT LISTED, READ ERROR or LIST ERROR reports as appropriate. One combined summary follows all DUs, for example:
+
+```text
+1 file calculated; 1 list written.
+12 verified; 1 failed; 2 missing; incomplete.
+```
+
+Zero secondary counters and per-DU total blocks are omitted. A successful check can end simply with `1 verified.` A check verifying no files is incomplete; it is never proof that everything is correct. Ctrl-C reports cancellation, discards uncommitted output and restores your original drive/user selection.
+
+### Exchanging lists with a host system
+
+Export the target files without altering their stored bytes, and keep filename case consistent with the list. Saved CP/M lists may have trailing Ctrl-Z padding. If a host md5sum reader reports that padding as malformed input, remove only the trailing padding from the host copy of the list. Leave target-file padding intact: it contributes to the digest.
+
+Some host readers require LF line endings or the two-space entry form. Convert those list details on the host if needed; target-file bytes must stay unchanged.
+
+The common entry syntax permits exchange of these lists. MD5SUM does not reproduce every host command-line option or support host directory paths inside entries.
+
+## PATCH verified binary file patching
+
+**PATCH 1.0 development candidate.** Newly built Utilities packages include PATCH
+on the NOAH companion disk. Native/cross parity and cpmsim execution checks pass;
+Model 4 qualification and paired release acceptance remain pending. The
+[engineering specification](../engineering/PATCH-Specification.md) controls the
+interface, and [implementation notes](../engineering/PATCH-Implementation.md)
+record qualification limits.
+
+PATCH applies verified byte replacements from a patch instruction file to a
+binary input file, producing a separate output. The original input remains
+unchanged. Every expected byte must agree with the original before PATCH creates
+any output. The patched copy retains the input's length and is read back in full
+before success is reported.
+
+### Running PATCH
+
+```text
+PATCH FIX.PAT
+PATCH FIX.PAT /INPUT=B3:PROGRAM.COM /OUTPUT=D0:PROGRAM.NEW
+PATCH FIX.PAT /VERBOSE
+```
+
+The patch file can name the input and output. `/INPUT=` and `/OUTPUT=` override
+those names independently. Both names must be available from the patch file or
+the command line; PATCH does not guess them.
+
+```text
+PATCH patchfile [ /INPUT=filespec ] [ /OUTPUT=filespec ] [ /VERBOSE ]
+```
+
+| Option | Effect |
+| --- | --- |
+| `/INPUT=filespec` | Select the original input, overriding the patch file's INPUT directive. |
+| `/OUTPUT=filespec` | Select a separate patched output, overriding the OUTPUT directive. |
+| `/VERBOSE` | Display instructions and validation results, continuing through independently identifiable mismatches. |
+| `/HELP` | Display help without file access. |
+| `/VER` | Display the utility identity without file access. |
+
+Option names are case-insensitive. Unknown or malformed options, conflicting
+duplicate options and missing values are errors. The patch file is the only
+positional operand. Exact HELP or VER queries ignore other arguments, with HELP
+taking precedence. `/VERBOSE` is an operational option, not a VER query.
+
+Each filename must identify one ordinary CP/M file, optionally with a single
+BetterCP/M drive/user qualifier. Wildcards, DU lists and ranges are not accepted.
+Unqualified names, including names inside the patch file, refer to the drive/user
+logged when PATCH started; they are not relative to the patch file's location.
+The output must differ from both the input and the instruction file after DU
+resolution. Alternate spellings of the same identity do not bypass this rule.
+
+If needed, qualify the executable separately, for example
+`C0:PATCH A3:FIX.PAT`. The executable's location does not change filename defaults. With the primary
+Utilities disk in B:, mount the NOAH companion in C: and keep D: as your work
+disk. PATCH shares the companion because the primary 332K disk lacks space.
+
+### Writing a patch file
+
+Use a plain text file, conventionally named with a `.PAT` extension:
+
+```text
+; BetterCP/M PATCH file
+; Format: OFFSET: OLD -> NEW
+
+INPUT  PROGRAM.COM
+OUTPUT PROGRAM.NEW
+
+0120: CD 05 00 C9 -> 00 00
+0122: 00 C9       -> 3E 02
+02A4: 3E 01 15    -> 3E 02
+```
+
+The bytes here illustrate the language; they are not a correction for an actual
+program. Use expected and replacement bytes appropriate to the exact file version
+you intend to patch.
+
+`INPUT` and `OUTPUT` are optional if supplied on the command line. Each may occur
+at most once in the file, even when a command-line override is supplied. Blank
+lines are ignored. A semicolon begins a comment, including after an instruction.
+The explanatory header is recommended but not required.
+
+Offsets are hexadecimal byte positions measured from the start of the stored
+file: offset `0000` is its first byte. A trailing `H` or `h` is optional. These
+are file offsets, not DDT load addresses. For a COM file loaded at 0100h, debugger
+address 0220h normally corresponds to file offset 0120h; check the actual file
+layout when translating a patch notice.
+
+OLD and NEW contain nonempty sequences of two-digit hexadecimal bytes separated
+by spaces or tabs. Letter case does not matter. NEW may be shorter than OLD but
+cannot be longer. Whitespace around the colon and ASCII arrow `->` is allowed.
+Each physical line may contain at most 255 characters, excluding its line ending.
+Longer or malformed lines are errors, not truncated instructions. CRLF, bare CR
+and bare LF are accepted. A Ctrl-Z terminates instruction text; following stored
+padding may contain zeros or Ctrl-Z bytes, but no further statements. NUL bytes
+before Ctrl-Z are errors. There is no
+arbitrary limit on the number of instructions; large patch files may require
+additional disk passes.
+
+### Verification context and overlapping ranges
+
+In the first instruction above, PATCH verifies all four original bytes
+`CD 05 00 C9`, then replaces only the first two with `00 00`. The trailing OLD
+bytes provide context and remain unchanged by that instruction.
+
+The next instruction verifies the original `00 C9` at offset 0122 and replaces
+those two bytes with `3E 02`. Together the first two instructions change the four
+bytes at 0120 to `00 00 3E 02`.
+
+Every check uses the unmodified input, so instruction order does not change the
+result. Verification ranges may overlap. Replacement ranges must not overlap,
+even if they would write identical values. Each complete OLD range must fit
+inside the input. PATCH rejects any mismatch, duplicate write, overlapping write
+or out-of-range instruction before creating output.
+
+### Existing output files
+
+After validating the complete patch, PATCH asks before replacing an existing
+output. The message identifies the resolved destination drive/user and filename:
+
+```text
+PATCH: D0:PROGRAM.NEW exists.
+Overwrite? (y/N/r/?)
+```
+
+| Response | Effect |
+| --- | --- |
+| `Y` | Authorize replacement of this output. |
+| `N` or Enter | Abort without changes. |
+| `R` | Enter a different output filename, optionally with one DU qualifier. |
+| `?` | Display `Y Yes, N No (abort), R Rename, ? Help`, then repeat the same file's prompt. |
+
+Choices accept either case. The default is No. Other keys repeat the question
+without authorizing a write. Repeated help changes no files or choices. A renamed
+destination is checked again for identity conflicts and existence; another
+collision produces the same question.
+
+For an authorized overwrite, PATCH writes and fully verifies a temporary copy
+on the destination DU before moving the old output to a backup name and
+installing the new file. The backup is deleted only after installation succeeds.
+Allow free disk space for the complete new copy while the old output still
+exists. The input and patch instruction file are never used as temporary or
+backup destinations.
+
+If installation fails, PATCH attempts to restore the previous destination. If
+restoration fails too, it retains the backup and reports its exact DU/name and
+the staged file's state. If only backup deletion fails after successful
+installation, PATCH reports success with a warning naming the retained backup.
+Keep reported recovery files until you have checked the final state.
+
+CP/M replacement is not atomic. Power loss can leave backup or temporary files,
+and can temporarily leave the requested destination name absent. PATCH cannot
+promise cleanup after power loss or a BDOS/BIOS error that never returns.
+
+### Cancellation and protection
+
+Ctrl-C cancels at safe boundaries, including while answering a collision or
+entering a new filename. PATCH cleans up uncommitted output where possible and
+restores your logged drive/user. It completes any immediate backup/install/
+restore recovery sequence before responding to cancellation.
+
+An instruction file with no replacements is an error. An explicit replacement
+that writes the same bytes is allowed; its changed-byte count is zero.
+
+PATCH refuses to replace a read-only or system output, without clearing its
+attributes. Choose a different output or manage protection separately. A new
+output is an ordinary read/write, directory-visible file; it does not inherit
+the input's or former output's attributes.
+
+Keep the input and patch file mounted and unchanged until the command finishes.
+PATCH fingerprints the complete stored patch on every scan and checks input
+fingerprints between phases to detect changes. These checks support consistent
+processing; they do not authenticate the author of a patch.
+
+### Results and errors
+
+PATCH preserves every stored 128-byte logical record, including Ctrl-Z bytes,
+high-bit bytes and apparent padding. It never treats the binary input as text,
+inserts bytes or shortens the output. Files and offsets beyond 64 KiB are
+supported within the implementation's documented addressing limits.
+
+After writing and closing the output, PATCH rereads and compares every byte
+against the expected patched copy, including untouched regions. This is mandatory;
+there is no NOVERIFY option. A successful summary identifies the input and output,
+instruction count, replacement-byte count, actual changed-byte count, total
+output bytes and full verification status. Writing a replacement equal to the original does not count as an actual
+byte change.
+
+Normal mode stops at the first validation failure. VERBOSE shows individual
+instructions and validation results and continues checking independent
+mismatches where parsing remains reliable. Any validation failure prevents all
+output creation in either mode. VERBOSE never authorizes a partially valid patch.
+
+Diagnostics identify the patch filename and physical line where applicable,
+and offsets and expected/found bytes when relevant. Read, write, close, readback,
+space, rename and cleanup failures are reported distinctly. A handled failure
+after output creation triggers cleanup where possible and explicitly identifies
+files that could not be removed or restored. An incomplete output is never
+reported as successfully patched.
+
+### Historical patch notices
+
+PATCH reads its native instruction language. It does not read DDT transcripts,
+Digital Research notices, assembler source, Unix diff patches or DOS DEBUG
+scripts directly. It does not patch system tracks or search for byte patterns.
+
+Historical corrections may be distributed separately as verified native PAT
+files, with the original notice and exact target version identified. Translating
+and qualifying those files is separate from implementing PATCH.
 
 ## DUMP hexadecimal file viewer
+
+`/HELP` shows the compact utility quick reference. `/HELP` and `/VER` are
+case-insensitive exact tokens, ignore other arguments, and return before file,
+drive/user or screen-provider services; HELP takes precedence when both occur.
 
 DUMP displays the bytes of one file in hexadecimal and readable ASCII. Use it to inspect binary programs, examine text control characters, or locate a particular byte sequence. DUMP reads the file without changing its contents or attributes. It does not disassemble instructions or edit files.
 
@@ -551,6 +938,7 @@ If DUMP is on B0: and is not otherwise found by your command environment, use `B
 | `/FROM=offset` | Begin displaying at the exact hexadecimal byte position; earlier columns are blank. |
 | `/BARE` | Use the original CP/M hex-only display and interruption behavior. |
 | `/LEN=count` | Display at most this many bytes, in hexadecimal; optional H/h suffix. |
+| `/HELP` | Show the compact help screen without opening a file. |
 | `/VER` | Show DUMP’s version and revision, then return. Other arguments are ignored. |
 
 Options may appear before or after the filename and are case-insensitive. `/P`, `/40`, `/FROM=`, and `/LEN=` may be combined. `/BARE` cannot be combined with them. Repeating a flag is harmless. For `/FROM=` and `/LEN=`, the last value wins, but every occurrence must be valid. Every `/FROM=` must also identify a byte within the file.
@@ -787,6 +1175,10 @@ BetterCP/M cpmsim command/input checks and Model 4/trs80gp screen/physical-keybo
 
 ## TED full-screen text editor
 
+`/HELP` shows the compact utility quick reference. `/HELP` and `/VER` are
+case-insensitive exact tokens, ignore other arguments, and return before file,
+drive/user or screen-provider services; HELP takes precedence when both occur.
+
 TED edits one text document using command, screen and browse modes. It retains
 TED's editing behavior with an agreed subset of WordStar command sequences.
 There is no undo, persistent block marking, WordStar document formatting or
@@ -978,6 +1370,12 @@ accompany the host package in `BetterCPM-TED-SOURCE.tar.gz`; retain that compani
 and `TEDCOPY.TXT` when redistributing.
 
 ## DASM Z80 disassembler and symbol tools
+
+`/HELP` shows the compact utility quick reference. `/HELP` and `/VER` are
+case-insensitive exact tokens, ignore other arguments, and return before file,
+drive/user or screen-provider services; HELP takes precedence when both occur. DSYM
+uses the same help/query convention. DASM's interactive H command still provides
+its full command reference.
 
 DASM is the maintained Richard Conn 1.5 Z80 disassembler adaptation. It inspects
 loaded bytes, records symbols/comments and code/data classifications, saves
@@ -1329,6 +1727,13 @@ length is available; 00h, 1Ah and high-bit bytes are ordinary input data.
 overrides read-only/system protection; `/R` and `/SYS` enable separate protected
 questions. `/Q` suppresses routine progress, retaining choices, warnings, errors
 and the final outcome. Escape or Ctrl-C cancels at safe boundaries.
+
+NOAH's ordinary replacement prompt offers `Y/N/A/C/?`, default No. Type `?`
+for `Y Yes, N No, A All, C Cancel, ? Help`. Safe failure recovery offers
+`R/S/A/?`, default Skip; its help is `R Retry, S Skip, A Abort all, ? Help`.
+Each explanation returns to the same file/member or failed source/archive.
+Repeated help changes no files or choices. Simple protection/removal/COMPACT
+Yes/No confirmations and paging retain their existing controls.
 
 Ordinary ARC updates preserve retained headers/payloads and the entire suffix
 after the end marker. COMPACT trims only excess 00h/1Ah padding and refuses an
