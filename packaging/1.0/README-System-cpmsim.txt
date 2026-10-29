@@ -4,9 +4,9 @@ BetterCP/M 1.0 System — cpmsim
 ASSEMBLY TEMPLATE — not a completed or accepted release package.
 Remove this notice only after the release acceptance checks pass.
 
-Contains the cpmsim System Disk and formatted work media. Utilities are a separate download.
+Contains the cpmsim System Disk and formatted work media. Utilities are a separate download for the same platform.
 
-Read docs/CPMSIM-INSTALLATION.md before booting. BetterCP/M requires patched cpmsim; build the runtime from the pinned sources and ordered patches in host/. Keep the generated environment.json. Stock cpmsim is insufficient.
+Read docs/platform/CPMSIM-INSTALLATION.md before booting. BetterCP/M requires patched cpmsim; build the runtime from the pinned sources and ordered patches in host/. Keep the generated environment.json. Stock cpmsim is insufficient.
 
 Mount writable image copies: A: System, B: primary Utilities and C: companion Utilities when installed, D: work. Start cpmsim with its matching srctools on PATH. BYE /Y exits.
 
