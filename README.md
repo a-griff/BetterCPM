@@ -1,165 +1,112 @@
-# BetterCP/M
+# BetterCP/M for the TRS-80 Model II
 
-BetterCP/M is a compact, maintainable CP/M-compatible operating system for Z80-class computers. The core OS version is **BetterCP/M 1.0**. The **1.0 release package remains in progress**, with documentation and Utilities Disk completion tracked separately.
+**A TRS-80 Model II port of [BetterCP/M](https://github.com/CPMArchives/BetterCPM), developed on the `trs80m2` branch of this fork.**
 
-The project begins with CP/M 2.2 as its compatibility baseline while redesigning the operating system around explicit interfaces, documented state, reproducible builds, portable hardware boundaries, and independently testable subsystems. The objective is not simply to reproduce Digital Research CP/M source code, but to provide a clean and well-specified CP/M environment that remains practical on small 8-bit systems.
+This fork adds support for the **Radio Shack TRS-80 Model II**, including its 8-inch floppy disk system, machine-specific boot process, console and serial interfaces, and supporting build tools.
 
-BetterCP/M has reached the **1.0 OS implementation milestone**: architecture Stages 1 through 8 and retained OS implementation Items 1 through 6 are complete. Utility selection and completion, release assembly, reproducible qualification tooling, and final release-candidate verification remain. This is a development milestone, not the declaration of a qualified 1.0 release.
+It builds on the CP/M 2.2-compatible BetterCP/M operating system developed by [CPMArchives](https://github.com/CPMArchives).
 
-The finalized visual design is defined in the [BetterCP/M Visual Identity standard](specifications/VISUAL-IDENTITY.md).
+**You are viewing the Model II port.** The upstream project is maintained separately; this fork retains its `main` branch for upstream synchronization.
 
-The [BetterCP/M Utilities Manual](docs/user/utilities_manual.md) provides operating instructions for Utilities Disk programs, including DUMP and the initial DDT debugger adaptation.
+## Project Status
 
-## Goals
+- **Model II port version:** `v.05`
+- **Port source:** [`src/platform/trs80m2/`](src/platform/trs80m2/)
+- **Source branch:** [`trs80m2`](https://github.com/a-griff/BetterCPM/tree/trs80m2)
+- **Upstream project:** [CPMArchives/BetterCPM](https://github.com/CPMArchives/BetterCPM)
 
-BetterCP/M is designed around several principles:
+This is a development port, not a claim that the Model II platform has completed upstream release qualification.
 
-- strong CP/M 2.2 application and programming compatibility;
-- a compact resident system and a default transient-program area of at least 53 KiB;
-- clear interfaces between the CCP, BDOS, BIOS, extensions, and hardware-dependent code;
-- portable system code separated from machine-specific support;
-- reproducible system and disk-image builds;
-- explicit, inspectable configuration instead of undocumented system state;
-- support for ROM-resident immutable code with mutable system state held in RAM;
-- loadable command and resident extensions through CPX and RSX facilities;
-- compatibility requirements backed by an executable conformance suite;
-- native CP/M development and system-generation paths alongside modern cross-development tools.
+BetterCP/M's upstream OS version and its release readiness are independent of this port's `v.05` designation.
 
-BetterCP/M retains the familiar CP/M model of drives, user areas, FCB-based file access, transient `.COM` programs, BDOS calls, and BIOS services while providing a more structured foundation for extending and maintaining the system.
+## TRS-80 Model II Support
 
-## The AI Elephant in the Room
+The port provides machine-specific components for:
 
-### Does BetterCP/M Use AI?
+- Model II boot loading and BIOS integration.
+- 8-inch floppy disk access and disk-format definitions.
+- Console and display handling.
+- Model II clock support.
+- Serial port A and B support through the platform extension.
+- CP/M device assignments `TTY:`, `UC1:`, `RDR:`, `PUN:`, and `LST:`.
+- System-disk image generation.
+- Platform-specific build tools and tests.
 
-Yes. Artificial intelligence has been used extensively in the implementation of BetterCP/M, including the production of its Z80 assembly-language source code. That may mean BetterCP/M is not for you. If you're still interested, read on.
+The port also adapts BetterCP/M system utilities and their supporting build processes for the Model II.
 
-### So Is BetterCP/M Vibe-Coded?
+Availability of individual utilities depends on the disk image being used.
 
-No. BetterCP/M is not [vibe-coded](https://x.com/karpathy/status/1886192184808149383). It is much close to an [agentic coding](https://martinfowler.com/bliki/AgenticProgramming.html) project.
+## Floppy Disk Format
 
-AI has been used extensively during the implementation phase of BetterCP/M, but the project's goals, scope, compatibility baseline, system design, architecture, interfaces, behavioral requirements, compatibility policy, acceptance criteria, and release requirements are human-directed. AI is used primarily to translate those requirements into code and to assist with analysis, testing, and documentation.
+The supplied Model II system-disk work targets an **8-inch, 77-track, single-sided** disk layout, with an FM boot track and MFM data tracks.
 
-Generated code is not accepted merely because it assembles, boots, or appears to work. BetterCP/M is developed against explicit specifications, compatibility requirements, regression tests, reproducible-build requirements, and qualification criteria.
+See the disk documentation for exact sector geometry, reserved tracks, and capacity calculations rather than assuming compatibility with every Model II disk format.
 
-For a detailed explanation of how artificial intelligence is used in BetterCP/M, its limitations, and the safeguards used around AI-generated code, see [`AI.md`](AI.md).
+- [TRS-80 Model II 8-inch System Disk documentation](docs/platform/TRS-80%20Model%20II%208-inch%20System%20Disk.md)
+- [Model II disk format definition](src/platform/trs80m2/M2DISK.FDF)
 
-## Current system
+## Source Code and Build Tools
 
-The current development system boots reproducibly on both the **TRS-80 Model 4 under `trs80gp`** and **z80pack `cpmsim`**. It provides a working BetterCP/M BIOS, BDOS, directory services, command processor, transient-program loader, resident commands, CPX command extensions, and relocatable RSX services.
+| Location | Contents |
+| --- | --- |
+| [`src/platform/trs80m2/`](src/platform/trs80m2/) | Model II boot, disk, console, clock, and extension sources |
+| [`src/bios/`](src/bios/) | Shared BIOS and integration code |
+| [`src/utilities/`](src/utilities/) | BetterCP/M utilities, including Model II adaptations |
+| [`tools/build_trs80m2_image.py`](tools/build_trs80m2_image.py) | Model II image builder |
+| [`tools/build_trs80m2_stage1.py`](tools/build_trs80m2_stage1.py) | Stage-one boot build tool |
+| [`tools/build_trs80m2_ext.py`](tools/build_trs80m2_ext.py) | Model II extension builder |
+| [`tools/test_trs80m2.sh`](tools/test_trs80m2.sh) | Model II platform test script |
+| [`src/platform/trs80m2/m2run.sh`](src/platform/trs80m2/m2run.sh) | Model II run helper |
 
-The system supports four physical drives, runtime disk-format assignment, ordinary CP/M drive/user operation, persistent command history, SUBMIT/XSUB operation, configurable disk services, and the standard CP/M file operations exercised by the project's compatibility suite.
+For the exact build sequence, prerequisites, command-line options, and current limitations, consult the scripts and platform documentation in this branch.
 
-CONFIG, DUP, SYSBUILD, and SYSGEN provide the implemented configuration, disk-management, system-generation, and installation path. Disk configuration uses BetterCP/M's FDF/FDB format-description architecture.
+**Do not assume the upstream Model 4 build instructions will produce a Model II boot disk unchanged.**
 
-The default memory configuration accepts a maximum record-aligned 53 KiB `.COM` image (54,272 bytes).
+## Getting a Bootable Disk Image
 
-Subsystems are versioned independently. See [`specifications/SUBSYSTEM-VERSIONING.md`](specifications/SUBSYSTEM-VERSIONING.md) and the authoritative assignments in [`metadata/subsystem-versions.tsv`](metadata/subsystem-versions.tsv).
-Utility `/VER` output and independent build counters are defined in [`specifications/UTILITY-VERSIONING.md`](specifications/UTILITY-VERSIONING.md), with assignments in [`metadata/utility-versions.tsv`](metadata/utility-versions.tsv).
+The Model II image is distributed as an **ImageDisk (`.imd`)** artifact.
 
-## BetterCP/M 1.0
+The versioned `v.05` image is named:
 
-The architecture for BetterCP/M 1.0 is frozen, and the retained OS feature implementation is complete. The remaining roadmap covers utilities, release assembly, and final qualification against the accepted contracts. Testing may identify corrections; it does not imply another planned OS feature implementation stage.
+`BetterCPM-Model2-77T-SS-System-584K-v.05.imd`
 
-The two required 1.0 platforms are:
+Check this repository's [Releases](https://github.com/a-griff/BetterCPM/releases) for published images.
 
-- TRS-80 Model 4 / `trs80gp`;
-- z80pack / `cpmsim`.
+If none is attached, the source and build tools are available in this branch. The filename above does not imply that the binary is already downloadable from GitHub.
 
-Both platforms already boot BetterCP/M. Remaining platform work includes reproducible qualification tooling and testing of the frozen release artifacts.
+## Compatibility
 
-The 1.0 system includes the normalized disk-state and FDF/FDB architecture, CONFIG/DUP/SYSGEN installation path, bounded persistent command history, CPX and RSX extension facilities, ordinary CP/M read-only/system/archive file attributes, and the native BetterCP/M clock-service architecture.
+BetterCP/M aims to preserve conventional **CP/M 2.2** application and programming compatibility, including:
 
-The production BetterCP/M private BDOS namespace occupies Functions 176–196, with current 1.0 services assigned at 176–183. Function 197 is reserved and undefined; 198–199 are non-public test selectors. Historical P2DOS Functions 200/201 remain outside the private namespace and are supplied through the P2DOS compatibility frontend.
+- Standard CP/M `.COM` programs.
+- The CP/M BDOS programming interface.
+- Standard 8.3 filenames.
+- Conventional CP/M disk and user-area operations.
 
-Several larger extensions are deliberately outside the 1.0 boundary. These include named directories and PATH, a generalized dynamic PDS, filesystem timestamps, terminal-capability redesign, general bank-aware operation, and additional qualified platforms. They remain possible post-1.0 work rather than hidden prerequisites for the first release.
+Some utilities and applications may depend on machine-specific hardware or undocumented behavior and should be tested on the Model II port.
 
-A bounded [terminal-monitor RSX](docs/architecture/31%20Terminal%20Monitor%20RSX.md)
-was accepted for 1.0 on 2026-10-12; implementation is pending. It supplies a
-loadable console personality through BIOS hooks and the existing startup-script
-mechanism. The broader terminal-capability redesign remains post-1.0 work.
+This port does **not** add long filename support. The normal CP/M 8.3 filename convention remains in effect.
 
-The authoritative scope and implementation sequence are defined by the [`BetterCP/M 1.0 Roadmap`](docs/releases/1.0-ROADMAP.md) and [`1.0 Implementation Contracts`](docs/releases/1.0-IMPLEMENTATION-CONTRACTS.md).
+## Relationship to Upstream
 
-## Building BetterCP/M
+This repository is a **fork**, not a replacement for the original BetterCP/M project.
 
-The complete current development image can be generated with:
+- [Original BetterCP/M repository](https://github.com/CPMArchives/BetterCPM) — Core operating-system development.
+- [`main` branch](https://github.com/a-griff/BetterCPM/tree/main) — Retained for synchronization with upstream.
+- [`trs80m2` branch](https://github.com/a-griff/BetterCPM/tree/trs80m2) — TRS-80 Model II port and machine-specific changes.
 
-```sh
-python3 tools/build_complete_system.py
-```
+Improvements to the shared operating system should be considered for contribution back to upstream.
 
-For an interactive native OS build under trs80gp, prepare fresh media and launch:
+Model II support can be proposed for inclusion through an upstream pull request.
 
-```sh
-bash tools/start_native_build.sh
-```
+## Credits
 
-This rebuilds a coherent source/tool snapshot and creates a boot disk in A:,
-the native build kit in B:, a SYSTEM-format work/installation disk in C:,
-and a spare data disk in D:. Existing output directories are never overwritten.
-Use `--prepare-only` to create media without launching, or supply a new output
-directory after that option. Set `TRS80GP` to override the emulator executable.
+**Original BetterCP/M project:**  
+[CPMArchives](https://github.com/CPMArchives/BetterCPM) and its contributors.
 
-In user zero, enter `B:` and `SUBMIT BUILD`. SUBMIT may be invoked from B:,
-but its temporary command stream uses writable A0:, as required by the CCP.
-The invoking user area is preserved; scripts may change drive/user without
-changing the queue location.
-The build selects C: and produces
-verified `SYSTEM.SYS`. Then enter `B:SYSGEN C:SYSTEM.SYS C:` to install it on
-that same disk without changing its ordinary files. Do not format C: between
-building and installation. The script prints the media directory for later reuse.
+**TRS-80 Model II port:**  
+[a-griff](https://github.com/a-griff)
 
-Individual subsystem builders and tests remain available under `tools/` for development and qualification work.
+For upstream design rationale, specifications, and general utilities documentation, see the [original BetterCP/M project](https://github.com/CPMArchives/BetterCPM).
 
-BetterCP/M also preserves a native CP/M build path. ZSM4 produces relocatable objects which are linked with Digital Research LINK where applicable, and native results are compared with cross-built binaries where practical.
-
-The source/build disk can be generated with:
-
-```sh
-python3 tools/build_source_disk.py
-```
-
-Detailed build, native-development, system-generation, and testing procedures belong to the BetterCP/M build/development documentation rather than this project overview. Current development information is available in [`docs/programmers/BUILD-DISK.md`](docs/programmers/BUILD-DISK.md) and the engineering record while that documentation is being consolidated.
-
-## Documentation
-
-BetterCP/M distinguishes between the **project/engineering record** and the **published documentation** intended for users, programmers, system developers, and technical readers.
-
-The project record documents architectural decisions, implementation milestones, qualification evidence, current work, and deferred designs. The principal entry points are:
-
-- [`docs/releases/1.0-ROADMAP.md`](docs/releases/1.0-ROADMAP.md) — authoritative 1.0 scope and work sequence;
-- [`docs/releases/1.0-IMPLEMENTATION-CONTRACTS.md`](docs/releases/1.0-IMPLEMENTATION-CONTRACTS.md) — retained 1.0 implementation contracts;
-- [`docs/architecture/`](docs/architecture/) — architectural specifications and design record;
-- [`docs/engineering/`](docs/engineering/) — implementation and qualification record;
-- [`docs/programmers/`](docs/programmers/) — current programming and development interfaces;
-- [Shared input library](docs/programmers/Shared%20Input%20Library.md) — reusable utility editors, prompts, choices and integration contracts;
-- [`docs/compatibility/`](docs/compatibility/) — compatibility requirements and evidence;
-- [`docs/platform/`](docs/platform/) — platform specifications and implementation material;
-- [`TODO.md`](TODO.md) — project backlog governed by the 1.0 roadmap.
-
-Historical documents are retained when they provide useful design or implementation history. Their historical presence does not override later architecture specifications or the frozen 1.0 contracts.
-
-The published BetterCP/M documentation is organized into four families:
-
-1. **User Documentation** — operating, configuring, installing, and maintaining BetterCP/M.
-2. **Programmer Documentation** — writing software, CPXs, RSXs, and other programs against supported BetterCP/M interfaces.
-3. **Technical Manuals** — authoritative descriptions of the operating system architecture and technical subsystems.
-4. **Build & Development Guide** — building, modifying, testing, generating, and porting BetterCP/M.
-
-These manuals are being developed from the reconciled project and engineering record.
-
-## Compatibility and testing
-
-BetterCP/M compatibility is defined by documented behavioral requirements rather than by program names or superficial similarity to CP/M.
-
-The system is tested with the separately maintained [**CP/M 2.2 Compatibility Suite**](https://github.com/CPMArchives/cpm-2.2-compatibility-suite), together with subsystem regression tests, platform tests, native/cross-build comparisons, and physical-system qualification procedures.
-
-Historical milestone results in the engineering record document what a particular build demonstrated at that point in development. Final BetterCP/M 1.0 qualification will be performed against frozen release-candidate images on both required platforms.
-
-## Related projects
-
-The CP/M compatibility foundation used by BetterCP/M is maintained in the [**CP/M 2.2 Compatibility Suite**](https://github.com/CPMArchives/cpm-2.2-compatibility-suite).
-
-General CP/M diagnostic and system utilities such as SYSINFO are maintained separately in [**CP/M Tools**](https://github.com/CPMArchives/cpm-tools).
-
-The BetterCP/M cpmsim target requires the [pinned emulator reconstruction](third_party/z80pack/README.md), including geometry interface v2. Runtime and ROM-qualification profiles are distinct.
+This README describes the Model II fork specifically.
